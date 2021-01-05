@@ -1,3 +1,5 @@
+[![Documentation Status](https://readthedocs.org/projects/pystages/badge/?version=latest)](https://pystages.readthedocs.io/en/latest/?badge=latest)
+
 # PyStages
 
 PyStages is a Python 3 library for controlling motorized stages which have a
