@@ -16,6 +16,10 @@ are implemented):
 The library also provides helper classes for basic vector manipulation and 
 autofocus calculation
 
+## Documentation
+
+Documentation is available on [Read the Docs](https://pystages.readthedocs.io).
+
 ## Requirements
 
 This library requires the following packages:
