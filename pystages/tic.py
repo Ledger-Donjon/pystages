@@ -113,11 +113,15 @@ class Tic:
     """
     Very basic driver class for Polulu Tic Stepper Motor controller, connected
     in USB.
+
+    :ivar poll_interval: Interval between successive state polling for some
+        long motor operations.
     """
     def __init__(self):
         self.dev = usb.core.find(idVendor=0x1ffb, idProduct=0x00b5)
         self.dev.set_configuration()
         self.energize()
+        self.poll_interval = 0.1
 
     def quick(self, command: TicCommand):
         """
@@ -185,11 +189,12 @@ class Tic:
         :param direction: Homing direction.
         :param wait: If True, wait for homing procedure end.
         """
+        self.exit_safe_start()
         self.write_7(TicCommand.GO_HOME, direction.value)
         if wait:
             while self.get_variable(TicVariable.MISC_FLAGS) & (1 << 4):
-                sleep(0.1)
                 self.exit_safe_start()
+                sleep(self.poll_interval)
 
     def set_target_position(self, pos):
         self.write_32(TicCommand.SET_TARGET_POSITION, pos)
@@ -205,8 +210,20 @@ class Tic:
 
     @property
     def position(self):
-        """ Motor position, in steps. """
+        """
+        Motor position, in steps.
+
+        :getter: Returns current target position.
+        :setter: Set target position and wait until position is reached.
+        """
         return self.get_variable(TicVariable.CURRENT_POSITION)
+
+    @position.setter
+    def position(self, value):
+        self.target_position = value
+        while self.position != value:
+            sleep(self.poll_interval)
+            self.exit_safe_start()
 
     @property
     def target_position(self):
@@ -214,4 +231,5 @@ class Tic:
 
     @target_position.setter
     def target_position(self, value):
+        self.exit_safe_start()
         self.set_target_position(value)
