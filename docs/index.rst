@@ -28,6 +28,7 @@ The library also provides helper classes for basic vector manipulation
    Vectors <vectors.rst>
    Autofocus <autofocus.rst>
    Python API <api.rst>
+   Troubleshooting <troubleshooting.rst>
 
 
 Indices and tables
