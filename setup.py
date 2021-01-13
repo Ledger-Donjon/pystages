@@ -9,4 +9,4 @@ setup(
     # require pyserial
     install_requires=['pyserial', 'pyusb', 'numpy'],
     packages=find_packages(),
-    python_requires='>=3.0')
+    python_requires='>=3.7')
