@@ -56,7 +56,7 @@ class Link:
         :param command: Command string. Don't include address nor CR LF since
             they are added automatically by this method.
         """
-        self.serial.write('{0}{1}\r\n'.format(address, command).encode())
+        self.serial.write(f'{address}{command}\r\n'.encode())
 
     def receive(self):
         """
@@ -100,7 +100,7 @@ class Link:
         :param address: Controller address. int.
         :param command: Command string, without '?'.
         """
-        query_string = '{0}{1}'.format(address, command)
+        query_string = f'{address}{command}'
         res = self.receive()
         if res[:len(query_string)] != query_string:
             raise ProtocolError()
@@ -226,7 +226,7 @@ class SMC100:
         if len(vec) != self.num_axis:
             raise ValueError('Invalid position vector dimension.')
         for i, addr in enumerate(self.addresses):
-            self.link.send(addr, 'PA{0}'.format(vec[i]))
+            self.link.send(addr, f'PA{vec[i]}')
 
     def reset(self):
         """ Reset stage controllers. """
@@ -301,7 +301,7 @@ class SMC100:
     def controller_address(self, addr, value):
         if value not in range(2, 32):
             raise ValueError('Invalid controller address')
-        self.link.send(addr, 'SA{value}')
+        self.link.send(addr, f'SA{value}')
 
     def move_relative(self, addr, offset):
         """
@@ -310,7 +310,7 @@ class SMC100:
         :param addr: addr of axis
         :param offset:
         """
-        self.link.send(addr, 'PR{0}'.format(offset))
+        self.link.send(addr, f'PR{offset}')
 
     def stop(self, addr=None):
         """
@@ -331,7 +331,7 @@ class SMC100:
         :param blocking: if True, blocking mode: wait for the position to be
             reached before exit.
         """
-        self.link.send(addr, 'PA{0}'.format(value))
+        self.link.send(addr, f'PA{value}')
 
         if blocking:
             while self.get_error_and_state(1).state.value == State.MOVING:
