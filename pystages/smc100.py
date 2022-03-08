@@ -23,6 +23,7 @@ import time
 from .vector import Vector
 from .exceptions import ProtocolError, ConnectionFailure
 from enum import Enum, IntFlag
+from typing import Optional
 
 
 class Link:
@@ -39,7 +40,7 @@ class Link:
     As specified in SMC100 controllers documentation, the address of the first
     controller in the daisy chain is always zero.
     """
-    def __init__(self, dev):
+    def __init__(self, dev: str):
         """
         :param dev: Serial device. For instance '/dev/ttyUSB0' or 'COM0'.
         """
@@ -48,7 +49,7 @@ class Link:
         except serial.serialutil.SerialException as e:
             raise ConnectionFailure() from e
 
-    def send(self, address, command):
+    def send(self, address: Optional[int], command: str):
         """
         Send a command to a controller.
 
@@ -59,7 +60,7 @@ class Link:
         to_send = f'{"" if address is None else address}{command}\r\n'
         self.serial.write(to_send.encode())
 
-    def receive(self):
+    def receive(self) -> Optional[str]:
         """
         Read input serial buffer to get a response. Blocks until a response is
         available.
@@ -77,7 +78,7 @@ class Link:
             elif c not in (ord('\r'), 0):
                 response += chr(c)
 
-    def query(self, address, command, lazy_res=False):
+    def query(self, address: Optional[int], command: str, lazy_res: bool=False) -> Optional[str]:
         """
         Send a query.
 
@@ -331,16 +332,16 @@ class SMC100:
         """
         Move relatively an axis from  a given offset
 
-        :param addr: addr of axis
-        :param offset:
+        :param addr: addr of axis to move
+        :param offset: offset value
         """
         self.link.send(addr, f'PR{offset}')
 
     def stop(self, addr=None):
         """
-        Stop the motion on an axis. On all axs if addr not specitied.
+        Stop the motion on an axis. On all axis if addr not specitied.
 
-        :param addr: address of the axis to stop
+        :param addr: Address of the axis to stop. If None, stop all the controllers
         """
         if addr is None:
             self.link.serial.write('ST\r\n'.encode())
