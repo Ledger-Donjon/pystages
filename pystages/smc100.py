@@ -22,7 +22,7 @@ import serial
 import time
 from .vector import Vector
 from .exceptions import ProtocolError, ConnectionFailure
-from enum import Enum
+from enum import Enum, IntFlag
 
 
 class Link:
@@ -136,22 +136,29 @@ class State(Enum):
     JOGGING_FROM_READY = 0x46
     JOGGING_FROM_DISABLE = 0x47
 
+class Error(IntFlag):
+    """
+    Information returned when querying positionner error.
+    """
+    OUTPUT_POWER_EXCEEDED = 1 << 9
+    DC_VOLTAGE_TOO_LOW = 1 << 8
+    WRONG_STAGE = 1 << 7
+    HOMING_TIMEOUT = 1 << 6
+    FOLLOWING_ERROR = 1 << 5
+    SHORT_CIRCUIT = 1 << 4
+    RMS_CURRENT_LIMIT = 1 << 3
+    PEAK_CURRENT_LIMIT = 1 << 2
+    POSITIVE_END_OF_RUN = 1 << 1
+    NEGATIVE_END_OF_RUN = 1 << 0
+    NO_ERROR = 0
+
 
 class ErrorAndState:
     """
     Information returned when querying positionner error and controller state.
     """
     state = None
-    output_power_exceeded = None
-    dc_voltage_too_low = None
-    wrong_stage = None
-    homing_timeout = None
-    following_error = None
-    short_circuit = None
-    rms_current_limit = None
-    peak_current_limit = None
-    positive_end_of_run = None
-    negative_end_of_run = None
+    error = None
 
     @property
     def is_referenced(self):
@@ -171,6 +178,32 @@ class ErrorAndState:
         return (
             (self.state.value >= State.READY_FROM_HOMING.value) and
             (self.state.value <= State.READY_FROM_JOGGING.value))
+
+    @property
+    def is_moving(self):
+        """ :return: True if state is MOVING. """
+        return self.state.value == State.MOVING.value
+
+    @property
+    def is_homing(self):
+        """ :return: True if state is one of HOMING_x states. """
+        return (
+                (self.state.value >= State.HOMING_RS232.value) and
+                (self.state.value <= State.HOMING_SMCRC.value))
+
+    @property
+    def is_jogging(self):
+        """ :return: True if state is one of JOGGING_x states. """
+        return (
+                (self.state.value >= State.JOGGING_FROM_READY.value) and
+                (self.state.value <= State.JOGGING_FROM_DISABLE.value))
+
+    @property
+    def is_disabled(self):
+        """ :return: True if state is one of DISABLE_x states. """
+        return (
+                (self.state.value >= State.DISABLE_FROM_READY.value) and
+                (self.state.value <= State.DISABLE_FROM_JOGGING.value))
 
 
 class SMC100:
@@ -263,18 +296,8 @@ class SMC100:
         res = self.link.query(self.addresses[axis], 'TS')
         if len(res) != 6:
             raise ProtocolError()
-        value = int(res[:4], 16)
         result = ErrorAndState()
-        result.output_power_exceeded = bool(value & (1 << 9))
-        result.dc_voltage_too_low = bool(value & (1 << 8))
-        result.wrong_stage = bool(value & (1 << 7))
-        result.homing_timeout = bool(value & (1 << 6))
-        result.following_error = bool(value & (1 << 5))
-        result.short_circuit = bool(value & (1 << 4))
-        result.rms_current_limit = bool(value & (1 << 3))
-        result.peak_current_limit = bool(value & (1 << 2))
-        result.positive_end_of_run = bool(value & (1 << 1))
-        result.negative_end_of_run = bool(value & 1)
+        result.error = Error(int(res[:4], 16))
         result.state = State(int(res[4:], 16))
         return result
 
