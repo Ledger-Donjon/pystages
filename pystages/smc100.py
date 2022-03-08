@@ -44,7 +44,7 @@ class Link:
         :param dev: Serial device. For instance '/dev/ttyUSB0' or 'COM0'.
         """
         try:
-            self.serial = serial.Serial(dev, 57600)
+            self.serial = serial.Serial(port=dev, baudrate=57600, xonxoff=True)
         except serial.serialutil.SerialException as e:
             raise ConnectionFailure() from e
 
