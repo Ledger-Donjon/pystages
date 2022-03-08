@@ -26,7 +26,14 @@ class ConnectionFailure(Exception):
 
 
 class ProtocolError(Exception):
-    pass
+    def __init__(self, query=None, response=None):
+        super().__init__(",".join([repr(query), repr(response)]))
+        self.query = query
+        self.response = response
+
+    def __str__(self):
+        return f"ProtocolError({repr(self.query)}, {repr(self.response)})"
+
 
 
 class VersionNotSupported(Exception):

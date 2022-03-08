@@ -104,7 +104,7 @@ class Link:
         query_string = f'{"" if address is None else address}{command}'
         res = self.receive()
         if res[:len(query_string)] != query_string:
-            raise ProtocolError()
+            raise ProtocolError(query_string, res)
         return res[len(query_string):]
 
 
@@ -295,7 +295,7 @@ class SMC100:
         """
         res = self.link.query(self.addresses[axis], 'TS')
         if len(res) != 6:
-            raise ProtocolError()
+            raise ProtocolError('TS', res)
         result = ErrorAndState()
         result.error = Error(int(res[:4], 16))
         result.state = State(int(res[4:], 16))
