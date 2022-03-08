@@ -52,11 +52,12 @@ class Link:
         """
         Send a command to a controller.
 
-        :param address: Controller address.
+        :param address: Controller address. If None, only the command is sent without prefix.
         :param command: Command string. Don't include address nor CR LF since
             they are added automatically by this method.
         """
-        self.serial.write(f'{address}{command}\r\n'.encode())
+        to_send = f'{"" if address is None else address}{command}\r\n'
+        self.serial.write(to_send.encode())
 
     def receive(self):
         """
@@ -100,7 +101,7 @@ class Link:
         :param address: Controller address. int.
         :param command: Command string, without '?'.
         """
-        query_string = f'{address}{command}'
+        query_string = f'{"" if address is None else address}{command}'
         res = self.receive()
         if res[:len(query_string)] != query_string:
             raise ProtocolError()
