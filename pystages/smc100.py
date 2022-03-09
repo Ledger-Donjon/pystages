@@ -357,7 +357,7 @@ class SMC100:
         """
         set the position of a single axis
 
-        :param addr: address of the axis to stop
+        :param addr: address of the axis to set the position
         :param blocking: if True, blocking mode: wait for the position to be
             reached before exit.
         """
