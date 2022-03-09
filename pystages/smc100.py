@@ -70,7 +70,8 @@ class Link:
         # Read at least 2 bytes for CR-LF.
         response = ''
         while True:
-            c = self.serial.read(1)[0]
+            # Communication contains only ASCII characters, for robustness, HSBit is masked
+            c = self.serial.read(1)[0] & 0x7f
             if c == ord('\n'):
                 return response
             # We may receive null characters after controller reset. Just
@@ -92,7 +93,11 @@ class Link:
         """
         self.send(address, command + '?')
         if not lazy_res:
-            return self.response(address, command)
+            try:
+                return self.response(address, command)
+            except ProtocolError as e:
+                # Retry to send the query
+                return self.query(address, command, lazy_res)
 
     def response(self, address, command):
         """
