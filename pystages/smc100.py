@@ -348,10 +348,7 @@ class SMC100:
 
         :param addr: Address of the axis to stop. If None, stop all the controllers
         """
-        if addr is None:
-            self.link.serial.write('ST\r\n'.encode())
-        else:
-            self.link.send(addr, 'ST')
+        self.link.send(addr, 'ST')
 
     def set_position(self, addr, value, blocking=True):
         """
