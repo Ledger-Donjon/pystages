@@ -390,9 +390,20 @@ class SMC100:
         """
         Wait until all axis are ready.
         """
+        while self.is_moving:
+            time.sleep(0.1)
+
+    @property
+    def is_moving(self) -> bool:
+        """
+        Indicates if the stage is currently moving due to MOVE, HOME or JOG operation.
+        :return: Moving state of the stage
+        """
         for addr in self.addresses:
-            while not self.get_error_and_state(addr=addr).is_ready:
-                pass
+            state = self.get_error_and_state(addr=addr)
+            if state.is_moving or state.is_homing or state.is_jogging:
+                return True
+        return False
 
     @property
     def is_disabled(self) -> bool:
