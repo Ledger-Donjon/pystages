@@ -371,3 +371,32 @@ class SMC100:
         for i in range(self.num_axis):
             while not self.get_error_and_state(i).is_ready:
                 pass
+
+    @property
+    def is_disabled(self) -> bool:
+        """
+        Indicates if the stage is currently in DISABLE state.
+        :return: Disabled state of the stage
+        """
+        for addr in self.addresses:
+            state = self.get_error_and_state(addr=addr)
+            if state.is_disabled:
+                return True
+        return False
+
+    @is_disabled.setter
+    def is_disabled(self, value: bool):
+        # self.is_disabled = True makes enter DISABLE state
+        self.enter_leave_disable_state(None, enter=value)
+
+    def enter_leave_disable_state(self, addr: Optional[int], enter: bool=True):
+        """
+        Permits for a specified axis to enter or leave the DISABLE state.
+        DISABLE state makes the motor not energizied and opens the control loop.
+
+        :param addr: address of the axis to operate. If None is passed, it applies to all controllers
+        :param enter: True to enter, False to leave DISABLE state
+        """
+        # MM0 changes the controller’s state from READY to DISABLE (enter)
+        # MM1 changes the controller’s state from DISABLE to READY (leave)
+        self.link.send(addr, f'MM{0 if enter else 1}')
