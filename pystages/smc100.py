@@ -371,6 +371,16 @@ class SMC100:
         """
         self.link.send(addr, 'ST')
 
+    def reset(self, addr: Optional[int]=None):
+        """
+        Resets the controller at specified address. For all controllers if not specified
+
+        :param addr: address of the controller to reset
+        """
+        for addr in (self.addresses if addr is None else [addr]):
+            self.link.send(addr, 'RS')
+
+
     def set_position(self, addr, value, blocking=True):
         """
         set the position of a single axis
