@@ -172,7 +172,7 @@ class ErrorAndState:
         :return: True if state is not one of the NOT_REFERENCED_x states.
         """
         if self.state is None:
-            raise RuntimeException('state not available')
+            raise RuntimeError("state not available")
         else:
             return not (
                 (self.state.value >= State.NOT_REFERENCED_FROM_RESET.value) and
