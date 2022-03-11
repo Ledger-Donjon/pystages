@@ -277,6 +277,8 @@ class SMC100:
         if len(value) != self.num_axis:
             raise ValueError('Invalid position vector dimension.')
 
+        # Enable the motors
+        self.is_disabled = False
         commands = []
         for position, addr in zip(value, self.addresses):
             commands.append(f"{addr}PA{value:.5f}")
@@ -361,6 +363,8 @@ class SMC100:
         :param addr: addr of axis to move
         :param offset: offset value
         """
+        # Enable the motors
+        self.is_disabled = False
         self.link.send(addr, f'PR{offset}')
 
     def stop(self, addr=None):
@@ -389,6 +393,8 @@ class SMC100:
         :param blocking: if True, blocking mode: wait for the position to be
             reached before exit.
         """
+        # Enable the motors
+        self.is_disabled = False
         self.link.send(addr, f'PA{value}')
 
         if blocking:
