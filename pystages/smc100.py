@@ -294,22 +294,25 @@ class SMC100:
     def home_search(self):
         """
         Perform home search.
-        Home search is performed even if the axises are already referenced. It
-        may be better to use home_search_if_required.
+        Home search is performed even if the axises are already referenced.
+        It may be better to use home_search_if_required.
         """
         for addr in self.addresses:
+            # It has been observed that OR may be not effective if another command (like TS?) is not
+            # performed before
+            self.get_error_and_state(addr=addr)
             self.link.send(addr, 'OR')
 
     def home_search_if_required(self):
         """
         Perfom home search for axis which are not referenced.
         """
-        for i, addr in enumerate(self.addresses):
-            state = self.get_error_and_state(i)
+        for addr in self.addresses:
+            state = self.get_error_and_state(addr=addr)
             if not state.is_referenced:
                 self.link.send(addr, 'OR')
 
-    def get_error_and_state(self, axis):
+    def get_error_and_state(self, addr):
         """
         Query current motion controller errors and state.
         Querying the error and state may clear error flags.
@@ -317,7 +320,7 @@ class SMC100:
         :axis: Axis index.
         :return: Current error and state, in a ErrorAndState instance.
         """
-        res = self.link.query(self.addresses[axis], 'TS')
+        res = self.link.query(addr, 'TS')
         if len(res) != 6:
             raise ProtocolError('TS', res)
         result = ErrorAndState()
@@ -379,15 +382,16 @@ class SMC100:
         self.link.send(addr, f'PA{value}')
 
         if blocking:
-            while self.get_error_and_state(1).state.value == State.MOVING:
+            error_and_state = self.get_error_and_state(addr=addr)
+            while error_and_state.is_moving:
                 time.sleep(0.1)
 
     def wait_move_finished(self):
         """
         Wait until all axis are ready.
         """
-        for i in range(self.num_axis):
-            while not self.get_error_and_state(i).is_ready:
+        for addr in self.addresses:
+            while not self.get_error_and_state(addr=addr).is_ready:
                 pass
 
     @property
