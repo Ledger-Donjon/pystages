@@ -262,11 +262,29 @@ class SMC100:
         return result
 
     @position.setter
-    def position(self, vec):
-        if len(vec) != self.num_axis:
+    def position(self, value: Vector):
+        self.move_to(value, wait=True)
+
+
+    def move_to(self, value: Vector, wait: bool=True):
+        """
+        Move stage to a new position.
+
+        :param value: New stage position.
+        :param wait: If True, wait for stage to be at the new position,
+            otherwise return immediately.
+        """
+        if len(value) != self.num_axis:
             raise ValueError('Invalid position vector dimension.')
-        for i, addr in enumerate(self.addresses):
-            self.link.send(addr, f'PA{vec[i]}')
+
+        commands = []
+        for position, addr in zip(value, self.addresses):
+            commands.append(f"{addr}PA{value:.5f}")
+        self.link.send(None, ";".join(commands))
+
+        if wait:
+            self.wait_move_finished()
+
 
     def reset(self):
         """ Reset stage controllers. """
