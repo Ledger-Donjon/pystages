@@ -30,20 +30,21 @@ class M3FS:
     Virtual-Com-Port after a few cumbersome operations (custom driver with
     correct VID/DID).
     """
-    def __init__(self, dev):
+
+    def __init__(self, dev, baudrate=250000):
         """
         Connect to the device. If the serial device cannot be opened, a
         ConnectionFailure exception is thrown. If the device version is not
         supported, a VersionNotSupported error is thrown.
 
         :param dev: Serial device. For instance 'COM0'.
+        :param baudrate: Serial baudrate.
         """
         self.resolution_um = 0.5
         try:
             self.serial = serial.Serial(
-                dev,
-                baudrate=250000,
-                stopbits=serial.STOPBITS_TWO)
+                dev, baudrate=baudrate, stopbits=serial.STOPBITS_TWO
+            )
         except serial.serialutil.SerialException as e:
             raise ConnectionFailure() from e
         # Test version string.
