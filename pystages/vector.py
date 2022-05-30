@@ -149,9 +149,26 @@ class Vector:
                 return False
         return True
 
+    def __mul__(self, other):
+        """
+        :return: Scalar multiplication between this vector and the other.
+        :param other: A Vector instance of same dimension, or an integer or a float.
+        """
+        dim = len(self)
+        if isinstance(other, int) or isinstance(other, float):
+            return self * Vector(*([other] * dim))
+        if len(other) != dim:
+            raise ValueError(f"Incorrect vector size")
+        for i in range(dim):
+            self[i] *= other[i]
+        return self
+
+    def __truediv__(self, other):
+        if isinstance(other, int) or isinstance(other, float):
+            return self * (1.0 / other)
+
 
 class TestVector(unittest.TestCase):
-
     def test_init(self):
         v = Vector(1)
         self.assertEqual(len(v), 1)
@@ -269,6 +286,15 @@ class TestVector(unittest.TestCase):
         self.assertNotEqual(Vector(1, 2, 3), Vector(1, 2, 4))
         self.assertNotEqual(Vector(1, 2, 3), Vector(1, 2))
 
+    def test_mult(self):
+        self.assertEqual(Vector() * 10, ())
+        self.assertEqual(Vector(1) * 10, Vector(10))
+        self.assertEqual(Vector(1, 2, 3) * 10, Vector(10, 20, 30))
+        self.assertEqual(
+            Vector(1.0, 2.0, 3.0) / 10,
+            Vector(1.0 * (1.0 / 10), 2.0 * (1.0 / 10), 3.0 * (1.0 / 10)),
+        )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()
