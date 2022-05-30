@@ -27,6 +27,7 @@ class Autofocus:
     of focused coordinates, this class can calculate the correct Z-depth for
     other points.
     """
+
     def __init__(self):
         self.registered_points = []
 
@@ -41,7 +42,7 @@ class Autofocus:
         self.registered_points.append((x, y, z))
 
     def clear(self):
-        """ Remove all registration points. """
+        """Remove all registration points."""
         self.registered_points.clear()
 
     def focus(self, x, y):
@@ -61,7 +62,7 @@ class Autofocus:
         if len(self.registered_points) >= 3:
             return self.__focus_3(x, y)
         else:
-            raise RuntimeError('Not enough points registered for autofocus')
+            raise RuntimeError("Not enough points registered for autofocus")
 
     def __normalized_xy(v):
         """
@@ -91,12 +92,11 @@ class Autofocus:
         return z
 
     def __len__(self):
-        """ :return: Number of registered points. """
+        """:return: Number of registered points."""
         return len(self.registered_points)
 
 
 class TestAutofocus(unittest.TestCase):
-
     def test_init(self):
         af = Autofocus()
         self.assertEqual(len(af), 0)
@@ -122,5 +122,5 @@ class TestAutofocus(unittest.TestCase):
         self.assertEqual(af.focus(3, 3), 12)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

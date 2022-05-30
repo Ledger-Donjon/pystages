@@ -28,6 +28,7 @@ class Corvus(Stage):
     """
     Class to command Corvus Eco XYZ stage controller.
     """
+
     def __init__(self, dev):
         """
         Open serial device to connect to the Corvus controller. Raise a
@@ -43,30 +44,30 @@ class Corvus(Stage):
         self.__init()
 
     def __init(self):
-        """ Initialize a few parameters. """
+        """Initialize a few parameters."""
         # Tell we work with 3 axis for move commands
-        self.send('3 setdim')
+        self.send("3 setdim")
         # Set unit to micrometers, for all axis
         unit = 1
-        self.send('{0} -1 setunit'.format(unit))
+        self.send("{0} -1 setunit".format(unit))
         # Verify it has been took into account (this can be dangerous
         # otherwise)
-        res = self.send_receive('-1 getunit').split()
+        res = self.send_receive("-1 getunit").split()
         for x in res:
             assert int(x) == unit
         # Enable joystick
         self.enable_joystick()
 
-    def send(self, command):
+    def send(self: str, command):
         """
         Send a command.
 
         :param command: Command string. CR or blank must not be present at the
             end of this string.
         """
-        self.serial.write((command + ' ').encode())
+        self.serial.write((command + " ").encode())
 
-    def receive(self):
+    def receive(self) -> str:
         """
         Read input serial buffer to get a response. Blocks until a response is
         available.
@@ -75,12 +76,12 @@ class Corvus(Stage):
         """
         # Read at least 2 bytes for CR-LF.
         response = self.serial.read(2)
-        while response[-2:] != b'\r\n':
+        while response[-2:] != b"\r\n":
             response += self.serial.read(1)
         # Remove CR-LF and return as string
         return response[:-2].decode()
 
-    def send_receive(self, command):
+    def send_receive(self, command: str) -> str:
         """
         Send a command, wait and return the response.
 
@@ -98,16 +99,16 @@ class Corvus(Stage):
         Take caution for collisions before calling this method !
         """
         # Disable Z-axis
-        self.send('3 3 setaxis')
+        self.send("3 3 setaxis")
         # Call for calibration
-        self.send('cal')
-        self.send('rm')
+        self.send("cal")
+        self.send("rm")
         # Wait until finished
         for i in range(2):
-            while int(self.send_receive('{0} getcaldone'.format(i+1))) != 3:
+            while int(self.send_receive("{0} getcaldone".format(i + 1))) != 3:
                 time.sleep(0.1)
         # Re-enabled Z-axis
-        self.send('1 3 setaxis')
+        self.send("1 3 setaxis")
 
     def calibrate(self):
         """
@@ -115,11 +116,11 @@ class Corvus(Stage):
         Take caution for collisions before calling this method !
         """
         # Call for calibration
-        self.send('cal')
-        self.send('rm')
+        self.send("cal")
+        self.send("rm")
         # Wait until finished
         for i in range(3):
-            while int(self.send_receive('{0} getcaldone'.format(i+1))) != 3:
+            while int(self.send_receive("{0} getcaldone".format(i + 1))) != 3:
                 time.sleep(0.1)
 
     def move_relative(self, x, y, z):
@@ -130,8 +131,8 @@ class Corvus(Stage):
         :param y: Relative distance on Y-axis, in micrometers.
         :param z: Relative distance on Z-axis, in micrometers.
         """
-        self.send('3 setdim')
-        self.send('{0} {1} {2} rmove'.format(x, y, z))
+        self.send("3 setdim")
+        self.send("{0} {1} {2} rmove".format(x, y, z))
         self.wait_move_finished()
 
     @property
@@ -139,16 +140,16 @@ class Corvus(Stage):
         return bool(int(self.send_receive("st")) & 1)
 
     def set_origin(self):
-        """ Set current stage coordinates as the new coordinates origin. """
-        self.send('0 0 0 setpos')
+        """Set current stage coordinates as the new coordinates origin."""
+        self.send("0 0 0 setpos")
 
     def enable_joystick(self):
-        """ Enable joystick (manual mode) """
-        self.send('1 j')
+        """Enable joystick (manual mode)"""
+        self.send("1 j")
 
     @property
     def is_connected(self):
-        """ :return: True if the instance is connected to the stage. """
+        """:return: True if the instance is connected to the stage."""
         return self.serial is not None
 
     @property
@@ -159,7 +160,7 @@ class Corvus(Stage):
         :getter: Query and return stage position.
         :setter: Move the stage.
         """
-        res = self.send_receive('p').split()
+        res = self.send_receive("p").split()
         return Vector(*tuple(float(x) for x in res))
 
     @position.setter
@@ -176,14 +177,14 @@ class Corvus(Stage):
         :getter: Query and return current setting.
         :setter: Update controller setting.
         """
-        res = float(self.send_receive('gv'))
+        res = float(self.send_receive("gv"))
         return res
 
     @velocity.setter
     def velocity(self, value):
         if value < 0:
-            raise ValueError('Velocity parameter cannot be negative.')
-        self.send('{0} sv'.format(value))
+            raise ValueError("Velocity parameter cannot be negative.")
+        self.send("{0} sv".format(value))
 
     @property
     def acceleration(self):
@@ -193,18 +194,18 @@ class Corvus(Stage):
         :getter: Query and return current setting.
         :setter: Update controller setting.
         """
-        res = float(self.send_receive('ga'))
+        res = float(self.send_receive("ga"))
         return res
 
     @acceleration.setter
     def acceleration(self, value):
         if value < 0:
-            raise ValueError('Acceleration parameter cannot be negative.')
-        self.send('{0} sa'.format(value))
+            raise ValueError("Acceleration parameter cannot be negative.")
+        self.send("{0} sa".format(value))
 
     def save(self):
-        """ Save current parameters in non-volatile memory. """
-        self.send('save')
+        """Save current parameters in non-volatile memory."""
+        self.send("save")
 
     def restore(self):
         """

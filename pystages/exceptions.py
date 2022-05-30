@@ -35,7 +35,6 @@ class ProtocolError(Exception):
         return f"ProtocolError({repr(self.query)}, {repr(self.response)})"
 
 
-
 class VersionNotSupported(Exception):
     def __init__(self, version):
         self.version = version

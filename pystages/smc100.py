@@ -41,6 +41,7 @@ class Link:
     As specified in SMC100 controllers documentation, the address of the first
     controller in the daisy chain is always zero.
     """
+
     def __init__(self, dev: str):
         """
         :param dev: Serial device. For instance '/dev/ttyUSB0' or 'COM0'.
@@ -69,18 +70,20 @@ class Link:
         :return: Received response string, CR-LF removed.
         """
         # Read at least 2 bytes for CR-LF.
-        response = ''
+        response = ""
         while True:
             # Communication contains only ASCII characters, for robustness, HSBit is masked
-            c = self.serial.read(1)[0] & 0x7f
-            if c == ord('\n'):
+            c = self.serial.read(1)[0] & 0x7F
+            if c == ord("\n"):
                 return response
             # We may receive null characters after controller reset. Just
             # ignore it and we will be fine, they are useless anyway.
-            elif c not in (ord('\r'), 0):
+            elif c not in (ord("\r"), 0):
                 response += chr(c)
 
-    def query(self, address: Optional[int], command: str, lazy_res: bool=False) -> Optional[str]:
+    def query(
+        self, address: Optional[int], command: str, lazy_res: bool = False
+    ) -> Optional[str]:
         """
         Send a query.
 
@@ -92,7 +95,7 @@ class Link:
             response.
         :return: Received response, or None if lazy_res is True.
         """
-        self.send(address, command + '?')
+        self.send(address, command + "?")
         if not lazy_res:
             try:
                 return self.response(address, command)
@@ -110,9 +113,9 @@ class Link:
         """
         query_string = f'{"" if address is None else address}{command}'
         res = self.receive()
-        if res[:len(query_string)] != query_string:
+        if res[: len(query_string)] != query_string:
             raise ProtocolError(query_string, res)
-        return res[len(query_string):]
+        return res[len(query_string) :]
 
 
 class State(Enum):
@@ -121,32 +124,35 @@ class State(Enum):
     The values in this enumeration corresponds to the values returned by the
     controller.
     """
-    NOT_REFERENCED_FROM_RESET = 0x0a
-    NOT_REFERENCED_FROM_HOMING = 0x0b
-    NOT_REFERENCED_FROM_CONFIGURATION = 0x0c
-    NOT_REFERENCED_FROM_DISABLE = 0x0d
-    NOT_REFERENCED_FROM_READY = 0x0e
-    NOT_REFERENCED_FROM_MOVING = 0x0f
+
+    NOT_REFERENCED_FROM_RESET = 0x0A
+    NOT_REFERENCED_FROM_HOMING = 0x0B
+    NOT_REFERENCED_FROM_CONFIGURATION = 0x0C
+    NOT_REFERENCED_FROM_DISABLE = 0x0D
+    NOT_REFERENCED_FROM_READY = 0x0E
+    NOT_REFERENCED_FROM_MOVING = 0x0F
     NOT_REFERENCED_STAGE_ERROR = 0x10
     NOT_REFERENCED_FROM_JOGGING = 0x11
     CONFIGURATION = 0x14
-    HOMING_RS232 = 0x1e
-    HOMING_SMCRC = 0x1f
+    HOMING_RS232 = 0x1E
+    HOMING_SMCRC = 0x1F
     MOVING = 0x28
     READY_FROM_HOMING = 0x32
     READY_FROM_MOVING = 0x33
     READY_FROM_DISABLE = 0x34
     READY_FROM_JOGGING = 0x35
-    DISABLE_FROM_READY = 0x3c
-    DISABLE_FROM_MOVING = 0x3d
-    DISABLE_FROM_JOGGING = 0x3e
+    DISABLE_FROM_READY = 0x3C
+    DISABLE_FROM_MOVING = 0x3D
+    DISABLE_FROM_JOGGING = 0x3E
     JOGGING_FROM_READY = 0x46
     JOGGING_FROM_DISABLE = 0x47
+
 
 class Error(IntFlag):
     """
     Information returned when querying positionner error.
     """
+
     OUTPUT_POWER_EXCEEDED = 1 << 9
     DC_VOLTAGE_TOO_LOW = 1 << 8
     WRONG_STAGE = 1 << 7
@@ -164,6 +170,7 @@ class ErrorAndState:
     """
     Information returned when querying positionner error and controller state.
     """
+
     state = None
     error = None
 
@@ -176,47 +183,49 @@ class ErrorAndState:
             raise RuntimeError("state not available")
         else:
             return not (
-                (self.state.value >= State.NOT_REFERENCED_FROM_RESET.value) and
-                (self.state.value <= State.NOT_REFERENCED_FROM_JOGGING.value))
+                (self.state.value >= State.NOT_REFERENCED_FROM_RESET.value)
+                and (self.state.value <= State.NOT_REFERENCED_FROM_JOGGING.value)
+            )
 
     @property
     def is_ready(self):
-        """ :return: True if state is one of READY_x states. """
-        return (
-            (self.state.value >= State.READY_FROM_HOMING.value) and
-            (self.state.value <= State.READY_FROM_JOGGING.value))
+        """:return: True if state is one of READY_x states."""
+        return (self.state.value >= State.READY_FROM_HOMING.value) and (
+            self.state.value <= State.READY_FROM_JOGGING.value
+        )
 
     @property
     def is_moving(self):
-        """ :return: True if state is MOVING. """
+        """:return: True if state is MOVING."""
         return self.state.value == State.MOVING.value
 
     @property
     def is_homing(self):
-        """ :return: True if state is one of HOMING_x states. """
-        return (
-                (self.state.value >= State.HOMING_RS232.value) and
-                (self.state.value <= State.HOMING_SMCRC.value))
+        """:return: True if state is one of HOMING_x states."""
+        return (self.state.value >= State.HOMING_RS232.value) and (
+            self.state.value <= State.HOMING_SMCRC.value
+        )
 
     @property
     def is_jogging(self):
-        """ :return: True if state is one of JOGGING_x states. """
-        return (
-                (self.state.value >= State.JOGGING_FROM_READY.value) and
-                (self.state.value <= State.JOGGING_FROM_DISABLE.value))
+        """:return: True if state is one of JOGGING_x states."""
+        return (self.state.value >= State.JOGGING_FROM_READY.value) and (
+            self.state.value <= State.JOGGING_FROM_DISABLE.value
+        )
 
     @property
     def is_disabled(self):
-        """ :return: True if state is one of DISABLE_x states. """
-        return (
-                (self.state.value >= State.DISABLE_FROM_READY.value) and
-                (self.state.value <= State.DISABLE_FROM_JOGGING.value))
+        """:return: True if state is one of DISABLE_x states."""
+        return (self.state.value >= State.DISABLE_FROM_READY.value) and (
+            self.state.value <= State.DISABLE_FROM_JOGGING.value
+        )
 
 
 class SMC100(Stage):
     """
     Class to command Newport SMC100 controllers.
     """
+
     def __init__(self, dev, addresses):
         """
         :param dev: Serial device string (for instance '/dev/ttyUSB0' or
@@ -239,11 +248,11 @@ class SMC100(Stage):
         # Errors prevent any command being executed. Reading the controller
         # state at startup returns and clear error flags.
         for addr in self.addresses:
-            self.link.query(addr, 'TS')
+            self.link.query(addr, "TS")
 
     @property
     def num_axis(self):
-        """ :return: Number of axis of this stage. """
+        """:return: Number of axis of this stage."""
         return len(self.addresses)
 
     @property
@@ -257,10 +266,9 @@ class SMC100(Stage):
         result = Vector(dim=self.num_axis)
         # It is faster to send all the request and then get all the responses.
         # This reduces a lot the latency.
-        for addr in self.addresses:
-            self.link.query(addr, 'TP', lazy_res=True)
         for i, addr in enumerate(self.addresses):
-            val = float(self.link.response(addr, 'TP'))
+            r = self.link.query(addr, "TP", lazy_res=False)
+            val = float(r)
             result[i] = val
         return result
 
@@ -277,9 +285,9 @@ class SMC100(Stage):
         self.link.send(None, "\r\n".join(commands))
 
     def reset(self):
-        """ Reset stage controllers. """
+        """Reset stage controllers."""
         for addr in self.addresses:
-            self.link.send(addr, 'RS')
+            self.link.send(addr, "RS")
 
     def home_search(self):
         """
@@ -291,7 +299,7 @@ class SMC100(Stage):
             # It has been observed that OR may be not effective if another command (like TS?) is not
             # performed before
             self.get_error_and_state(addr=addr)
-            self.link.send(addr, 'OR')
+            self.link.send(addr, "OR")
 
     def home_search_if_required(self):
         """
@@ -300,7 +308,7 @@ class SMC100(Stage):
         for addr in self.addresses:
             state = self.get_error_and_state(addr=addr)
             if not state.is_referenced:
-                self.link.send(addr, 'OR')
+                self.link.send(addr, "OR")
 
     def get_error_and_state(self, addr):
         """
@@ -310,24 +318,24 @@ class SMC100(Stage):
         :axis: Axis index.
         :return: Current error and state, in a ErrorAndState instance.
         """
-        res = self.link.query(addr, 'TS')
+        res = self.link.query(addr, "TS")
         if len(res) != 6:
-            raise ProtocolError('TS', res)
+            raise ProtocolError("TS", res)
         result = ErrorAndState()
         result.error = Error(int(res[:4], 16))
         result.state = State(int(res[4:], 16))
         return result
 
     def enter_configuration_state(self, addr):
-        """ Enter configuration state. """
-        self.link.send(addr, 'PW1')
+        """Enter configuration state."""
+        self.link.send(addr, "PW1")
 
     def leave_configuration_state(self, addr):
         """
         Leave configuration state. If defined parameters are valid, the
         controller saves them in the flash memory.
         """
-        self.link.send(addr, 'PW0')
+        self.link.send(addr, "PW0")
 
     @property
     def controller_address(self, addr):
@@ -336,13 +344,13 @@ class SMC100(Stage):
         Changing the address is only possible when the controller is in
         configuration state.
         """
-        return int(self.link.query(addr, 'SA'))
+        return int(self.link.query(addr, "SA"))
 
     @controller_address.setter
     def controller_address(self, addr, value):
         if value not in range(2, 32):
-            raise ValueError('Invalid controller address')
-        self.link.send(addr, f'SA{value}')
+            raise ValueError("Invalid controller address")
+        self.link.send(addr, f"SA{value}")
 
     def move_relative(self, addr, offset):
         """
@@ -353,7 +361,7 @@ class SMC100(Stage):
         """
         # Enable the motors
         self.is_disabled = False
-        self.link.send(addr, f'PR{offset}')
+        self.link.send(addr, f"PR{offset}")
 
     def stop(self, addr=None):
         """
@@ -361,17 +369,16 @@ class SMC100(Stage):
 
         :param addr: Address of the axis to stop. If None, stop all the controllers
         """
-        self.link.send(addr, 'ST')
+        self.link.send(addr, "ST")
 
-    def reset(self, addr: Optional[int]=None):
+    def reset(self, addr: Optional[int] = None):
         """
         Resets the controller at specified address. For all controllers if not specified
 
         :param addr: address of the controller to reset
         """
         for addr in (self.addresses if addr is None else [addr]):
-            self.link.send(addr, 'RS')
-
+            self.link.send(addr, "RS")
 
     def set_position(self, addr, value, blocking=True):
         """
@@ -383,7 +390,7 @@ class SMC100(Stage):
         """
         # Enable the motors
         self.is_disabled = False
-        self.link.send(addr, f'PA{value}')
+        self.link.send(addr, f"PA{value}")
 
         if blocking:
             error_and_state = self.get_error_and_state(addr=addr)
@@ -419,7 +426,7 @@ class SMC100(Stage):
         # self.is_disabled = True makes enter DISABLE state
         self.enter_leave_disable_state(None, enter=value)
 
-    def enter_leave_disable_state(self, addr: Optional[int], enter: bool=True):
+    def enter_leave_disable_state(self, addr: Optional[int], enter: bool = True):
         """
         Permits for a specified axis to enter or leave the DISABLE state.
         DISABLE state makes the motor not energizied and opens the control loop.
@@ -429,4 +436,4 @@ class SMC100(Stage):
         """
         # MM0 changes the controller’s state from READY to DISABLE (enter)
         # MM1 changes the controller’s state from DISABLE to READY (leave)
-        self.link.send(addr, f'MM{0 if enter else 1}')
+        self.link.send(addr, f"MM{0 if enter else 1}")
