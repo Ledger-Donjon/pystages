@@ -23,3 +23,4 @@ from .smc100 import SMC100
 from .autofocus import Autofocus
 from .vector import Vector
 from .tic import Tic, TicDirection
+from .cncrouter import CNCRouter, CNCStatus
