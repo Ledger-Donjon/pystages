@@ -20,6 +20,9 @@ from .vector import Vector
 
 
 class Stage:
+    def __init__(self):
+        self.wait_routine = None
+
     @property
     def position(self) -> Vector:
         """
@@ -49,7 +52,8 @@ class Stage:
         :param wait_routine: An optional routine to be executed between each query of move.
         """
         while self.is_moving:
-            pass
+            if self.wait_routine is not None:
+                self.wait_routine()
 
     def move_to(self, value: Vector, wait: bool = True):
         """
