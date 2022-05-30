@@ -14,8 +14,8 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 #
-# Copyright 2018-2020 Ledger SAS,
-# written by Olivier Hériveaux and Manuel San Pedro
+# Copyright 2018-2022 Ledger SAS,
+# written by Olivier Hériveaux, Manuel San Pedro and Michaël Mouchous
 
 
 import serial
@@ -24,6 +24,7 @@ from .vector import Vector
 from .exceptions import ProtocolError, ConnectionFailure
 from enum import Enum, IntFlag
 from typing import Optional
+from .stage import Stage
 
 
 class Link:
@@ -212,7 +213,7 @@ class ErrorAndState:
                 (self.state.value <= State.DISABLE_FROM_JOGGING.value))
 
 
-class SMC100:
+class SMC100(Stage):
     """
     Class to command Newport SMC100 controllers.
     """
@@ -223,6 +224,8 @@ class SMC100:
             the same serial device.
         :param addresses: An iterable of int controller addresses.
         """
+        super().__init__()
+
         if isinstance(dev, Link):
             self.link = dev
         elif isinstance(dev, SMC100):
@@ -263,30 +266,15 @@ class SMC100:
 
     @position.setter
     def position(self, value: Vector):
-        self.move_to(value, wait=True)
-
-
-    def move_to(self, value: Vector, wait: bool=True):
-        """
-        Move stage to a new position.
-
-        :param value: New stage position.
-        :param wait: If True, wait for stage to be at the new position,
-            otherwise return immediately.
-        """
         if len(value) != self.num_axis:
-            raise ValueError('Invalid position vector dimension.')
+            raise ValueError("Invalid position vector dimension.")
 
         # Enable the motors
         self.is_disabled = False
         commands = []
         for position, addr in zip(value, self.addresses):
-            commands.append(f"{addr}PA{value:.5f}")
-        self.link.send(None, ";".join(commands))
-
-        if wait:
-            self.wait_move_finished()
-
+            commands.append(f"{addr}PA{position:.5f}")
+        self.link.send(None, "\r\n".join(commands))
 
     def reset(self):
         """ Reset stage controllers. """
@@ -401,13 +389,6 @@ class SMC100:
             error_and_state = self.get_error_and_state(addr=addr)
             while error_and_state.is_moving:
                 time.sleep(0.1)
-
-    def wait_move_finished(self):
-        """
-        Wait until all axis are ready.
-        """
-        while self.is_moving:
-            time.sleep(0.1)
 
     @property
     def is_moving(self) -> bool:

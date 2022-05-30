@@ -14,16 +14,17 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 #
-# Copyright 2018-2020 Ledger SAS, written by Olivier Hériveaux
+# Copyright 2018-2022 Ledger SAS, written by Olivier Hériveaux
 
 
 import serial
 import time
 from .exceptions import ConnectionFailure
 from .vector import Vector
+from .stage import Stage
 
 
-class Corvus:
+class Corvus(Stage):
     """
     Class to command Corvus Eco XYZ stage controller.
     """
@@ -34,6 +35,7 @@ class Corvus:
 
         :param dev: Serial device. For instance '/dev/ttyUSB0'.
         """
+        super().__init__()
         try:
             self.serial = serial.Serial(dev, 57600)
         except serial.serialutil.SerialException as e:
@@ -134,12 +136,7 @@ class Corvus:
 
     @property
     def is_moving(self):
-        return bool(int(self.send_receive('st')) & 1)
-
-    def wait_move_finished(self):
-        """ Wait until move is finished. """
-        while is_moving:
-            pass
+        return bool(int(self.send_receive("st")) & 1)
 
     def set_origin(self):
         """ Set current stage coordinates as the new coordinates origin. """
@@ -167,20 +164,9 @@ class Corvus:
 
     @position.setter
     def position(self, value):
-        self.move_to(value, wait=True)
+        self.send("3 setdim")
+        self.send("{0} {1} {2} move".format(value.x, value.y, value.z))
 
-    def move_to(self, value, wait: bool=True):
-        """
-        Move stage to a new position.
-
-        :param value: New stage position.
-        :param wait: If True, wait for stage to be at the new position,
-            otherwise return immediately.
-        """
-        self.send('3 setdim')
-        self.send('{0} {1} {2} move'.format(value.x, value.y, value.z))
-        if wait:
-            self.wait_move_finished()
 
     @property
     def velocity(self):

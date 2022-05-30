@@ -20,9 +20,10 @@
 import serial
 from binascii import hexlify
 from .exceptions import ConnectionFailure, ProtocolError, VersionNotSupported
+from .stage import Stage
 
 
-class M3FS:
+class M3FS(Stage):
     """
     Class to command New Scale Technologies M3-FS focus modules in serial mode
     (VCP).
@@ -38,6 +39,7 @@ class M3FS:
 
         :param dev: Serial device. For instance 'COM0'.
         """
+        super().__init__()
         self.resolution_um = 0.5
         try:
             self.serial = serial.Serial(
