@@ -16,7 +16,7 @@
 #
 # Copyright 2018 Ledger SAS, written by Olivier Hériveaux
 
-
+from .stage import Stage
 from .corvus import Corvus
 from .m3fs import M3FS
 from .smc100 import SMC100
