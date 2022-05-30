@@ -212,4 +212,4 @@ class Corvus(Stage):
         Reactivates the last saved parameters. Beware this might change units,
         which may be dangerous if care is not taken.
         """
-        self.save('restore')
+        self.send("restore")
