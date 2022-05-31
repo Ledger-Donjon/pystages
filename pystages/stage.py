@@ -88,6 +88,37 @@ class Stage:
             raise ValueError(
                 f"The given vector's dimension {len(value)} is incorrect: expected {self.num_axis}"
             )
+
+    def check_range(self, value: Vector):
+        """
+        Check if the given value is in range according to minimums/maximums.
+        If it is not the case, a ValueException is raised.
+
+        :param value: The vector to check if it is within authorized range.
+        """
+        if self._minimums is None and self._maximums is None:
+            # No restriction, we can return
+            return
+        # Get minimums and/or maximums. If one of them is None, we use the value.
+        mins = value if self._minimums is None else self._minimums
+        maxs = value if self._maximums is None else self._maximums
+
+        # Check if the dimensions are correct.
+        if len(mins) != len(value) or len(maxs) != len(value):
+            raise ValueError(
+                "Invalid vector dimension according to minimums and/or maximums"
+            )
+
+        for i in range(len(value)):
+            if mins[i] is not None and value[i] < mins[i]:
+                raise ValueError(
+                    f"Invalid value for dimension {i}: {value[i]} is smaller that minimum {mins[i]}."
+                )
+            if maxs[i] is not None and value[i] > maxs[i]:
+                raise ValueError(
+                    f"Invalid value for dimension {i}: {value[i]} is greater that maximum {maxs[i]}."
+                )
+
     @property
     def minimums(self) -> Optional[Vector]:
         return self._minimums
