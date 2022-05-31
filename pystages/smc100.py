@@ -272,6 +272,7 @@ class SMC100(Stage):
             result[i] = val
         return result
 
+
     @position.setter
     def position(self, value: Vector):
         if len(value) != self.num_axis:

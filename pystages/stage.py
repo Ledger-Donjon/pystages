@@ -17,6 +17,7 @@
 # Copyright 2018-2022 Ledger SAS, written by Michaël Mouchous
 
 from .vector import Vector
+from typing import Optional
 
 
 class Stage:

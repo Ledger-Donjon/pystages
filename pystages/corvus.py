@@ -58,7 +58,7 @@ class Corvus(Stage):
         # Enable joystick
         self.enable_joystick()
 
-    def send(self: str, command):
+    def send(self, command: str):
         """
         Send a command.
 
@@ -164,7 +164,7 @@ class Corvus(Stage):
         return Vector(*tuple(float(x) for x in res))
 
     @position.setter
-    def position(self, value):
+    def position(self, value: Vector):
         self.send("3 setdim")
         self.send("{0} {1} {2} move".format(value.x, value.y, value.z))
 

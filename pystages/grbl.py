@@ -1,3 +1,20 @@
+# This file is part of pystages
+#
+# pystages is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+#
+# Copyright 2018-2022 Ledger SAS, written by Michaël Mouchous
 from enum import Enum, Flag
 
 GRBL_ALARM_DESC = {
@@ -76,6 +93,10 @@ class StatusReportMask(Flag):
 
 
 class GRBLSetting(Enum):
+    """
+    GRBL Setting are obtained by sending the '$$' command as a list of
+    key-value pairs '$K=V' with K being a number.
+    """
     STEP_PULSE = "$0"
     STEP_IDLE_DELAY = "$1"
     STEP_PORT_INVERT = "$2"
@@ -113,18 +134,27 @@ class GRBLSetting(Enum):
 
     @property
     def type(self) -> type:
+        """
+        Gives the type of the value stored in the GRBL setting
+        """
         return type(self._description[0])
 
     @property
     def default_value(self) -> float | bool | InvertMask | StatusReportMask | int:
+        """
+        Gives the default value of the GRBL setting
+        """
         return self._description[0]
 
     @property
     def description(self) -> str:
+        """
+        Gives the string description of the GRBL setting
+        """
         return self._description[1]
 
     @property
-    def _description(self):
+    def _description(self) -> dict:
         # Numbering: (type, default value, description)
         return {
             GRBLSetting.STEP_PULSE: (10.0, "Step pulse, usec"),
