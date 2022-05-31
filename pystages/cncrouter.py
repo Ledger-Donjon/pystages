@@ -173,6 +173,9 @@ class CNCRouter(Stage):
 
     @position.setter
     def position(self, value: Vector):
+        # To check dimension and range of the given value
+        super(__class__, self.__class__).position.fset(self, value)
+
         command = f"G0 X{value.x}"
         if len(value) > 1:
             command += f" Y{value.y}"

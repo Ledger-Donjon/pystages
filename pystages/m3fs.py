@@ -156,6 +156,9 @@ class M3FS(Stage):
 
     @position.setter
     def position(self, value):
+        # To check dimension and range of the given value
+        super(__class__, self.__class__).position.fset(self, value)
+
         val = round(value / self.resolution_um).to_bytes(4, "big", signed=True)
         self.command(8, hexlify(val).decode())
         # Now wait until motor is not moving anymore

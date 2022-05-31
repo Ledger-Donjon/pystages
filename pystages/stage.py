@@ -49,7 +49,9 @@ class Stage:
         """
         Set stage to a new destination.
         """
-        raise RuntimeError("This function should not be called")
+        # Checks dimension according to number of axis, and range according to minimums/maximums (raises an exception if incorrect)
+        self.check_dimension(value)
+        self.check_range(value)
 
     @property
     def is_moving(self) -> bool:

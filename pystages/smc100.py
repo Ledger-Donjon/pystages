@@ -266,11 +266,10 @@ class SMC100(Stage):
             result[i] = val
         return result
 
-
     @position.setter
     def position(self, value: Vector):
-        if len(value) != self.num_axis:
-            raise ValueError("Invalid position vector dimension.")
+        # To check dimension and range of the given value
+        super(__class__, self.__class__).position.fset(self, value)
 
         # Enable the motors
         self.is_disabled = False

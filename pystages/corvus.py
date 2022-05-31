@@ -165,6 +165,8 @@ class Corvus(Stage):
 
     @position.setter
     def position(self, value: Vector):
+        # To check dimension and range of the given value
+        super(__class__, self.__class__).position.fset(self, value)
         self.send("3 setdim")
         self.send("{0} {1} {2} move".format(value.x, value.y, value.z))
 
