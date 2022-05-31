@@ -24,6 +24,7 @@ class Vector:
     """
     Some basic vector manipulation class for stages control.
     """
+
     def __init__(self, *args, dim=None):
         """
         :param args: Initial values of the vector.
@@ -31,7 +32,7 @@ class Vector:
         """
         if dim is not None:
             if len(args) > dim:
-                raise ValueError('Two many initial values for this dimension.')
+                raise ValueError("Two many initial values for this dimension.")
             self.data = list(args)
             while len(self.data) < dim:
                 self.data.append(0)
@@ -40,7 +41,7 @@ class Vector:
 
     @property
     def x(self):
-        """ First element of the vector. """
+        """First element of the vector."""
         return self.data[0]
 
     @x.setter
@@ -49,7 +50,7 @@ class Vector:
 
     @property
     def y(self):
-        """ Second element of the vector. """
+        """Second element of the vector."""
         return self.data[1]
 
     @y.setter
@@ -58,7 +59,7 @@ class Vector:
 
     @property
     def z(self):
-        """ Third element of the vector. """
+        """Third element of the vector."""
         return self.data[2]
 
     @z.setter
@@ -67,7 +68,7 @@ class Vector:
 
     @property
     def w(self):
-        """ Fourth element of the vector. """
+        """Fourth element of the vector."""
         return self.data[3]
 
     @w.setter
@@ -76,7 +77,7 @@ class Vector:
 
     @property
     def xy(self):
-        """ First and second elements of the vector, as a 2D Vector. """
+        """First and second elements of the vector, as a 2D Vector."""
         return Vector(self.data[0], self.data[1])
 
     @xy.setter
@@ -104,7 +105,7 @@ class Vector:
         """
         :return: String representation of the vector. For instance '(1, 2, 3)'.
         """
-        return '(' + ','.join(str(x) for x in self.data) + ')'
+        return "(" + ",".join(str(x) for x in self.data) + ")"
 
     def __add__(self, other):
         """
@@ -113,7 +114,7 @@ class Vector:
         """
         dim = len(self)
         if len(other) != dim:
-            raise ValueError('Incorrect vector size')
+            raise ValueError("Incorrect vector size")
         result = Vector(*self.data)
         for i in range(dim):
             result.data[i] += other[i]
@@ -126,7 +127,7 @@ class Vector:
         """
         dim = len(self)
         if len(other) != dim:
-            raise ValueError('Incorrect vector size')
+            raise ValueError("Incorrect vector size")
         result = Vector(*self.data)
         for i in range(dim):
             result.data[i] -= other[i]
@@ -136,10 +137,8 @@ class Vector:
         return len(self.data)
 
     def __repr__(self):
-        """
-
-        """
-        return 'Vector(' + ','.join(str(x) for x in self.data) + ')'
+        """ """
+        return "Vector(" + ",".join(str(x) for x in self.data) + ")"
 
     def __eq__(self, other):
         if len(self) != len(other):
@@ -151,7 +150,6 @@ class Vector:
 
 
 class TestVector(unittest.TestCase):
-
     def test_init(self):
         v = Vector(1)
         self.assertEqual(len(v), 1)
@@ -270,5 +268,5 @@ class TestVector(unittest.TestCase):
         self.assertNotEqual(Vector(1, 2, 3), Vector(1, 2))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

@@ -39,6 +39,7 @@ class Link:
     As specified in SMC100 controllers documentation, the address of the first
     controller in the daisy chain is always zero.
     """
+
     def __init__(self, dev):
         """
         :param dev: Serial device. For instance '/dev/ttyUSB0' or 'COM0'.
@@ -56,7 +57,7 @@ class Link:
         :param command: Command string. Don't include address nor CR LF since
             they are added automatically by this method.
         """
-        self.serial.write(f'{address}{command}\r\n'.encode())
+        self.serial.write(f"{address}{command}\r\n".encode())
 
     def receive(self):
         """
@@ -66,14 +67,14 @@ class Link:
         :return: Received response string, CR-LF removed.
         """
         # Read at least 2 bytes for CR-LF.
-        response = ''
+        response = ""
         while True:
             c = self.serial.read(1)[0]
-            if c == ord('\n'):
+            if c == ord("\n"):
                 return response
             # We may receive null characters after controller reset. Just
             # ignore it and we will be fine, they are useless anyway.
-            elif c not in (ord('\r'), 0):
+            elif c not in (ord("\r"), 0):
                 response += chr(c)
 
     def query(self, address, command, lazy_res=False):
@@ -88,7 +89,7 @@ class Link:
             response.
         :return: Received response, or None if lazy_res is True.
         """
-        self.send(address, command + '?')
+        self.send(address, command + "?")
         if not lazy_res:
             return self.response(address, command)
 
@@ -100,11 +101,11 @@ class Link:
         :param address: Controller address. int.
         :param command: Command string, without '?'.
         """
-        query_string = f'{address}{command}'
+        query_string = f"{address}{command}"
         res = self.receive()
-        if res[:len(query_string)] != query_string:
+        if res[: len(query_string)] != query_string:
             raise ProtocolError()
-        return res[len(query_string):]
+        return res[len(query_string) :]
 
 
 class State(Enum):
@@ -113,25 +114,26 @@ class State(Enum):
     The values in this enumeration corresponds to the values returned by the
     controller.
     """
-    NOT_REFERENCED_FROM_RESET = 0x0a
-    NOT_REFERENCED_FROM_HOMING = 0x0b
-    NOT_REFERENCED_FROM_CONFIGURATION = 0x0c
-    NOT_REFERENCED_FROM_DISABLE = 0x0d
-    NOT_REFERENCED_FROM_READY = 0x0e
-    NOT_REFERENCED_FROM_MOVING = 0x0f
+
+    NOT_REFERENCED_FROM_RESET = 0x0A
+    NOT_REFERENCED_FROM_HOMING = 0x0B
+    NOT_REFERENCED_FROM_CONFIGURATION = 0x0C
+    NOT_REFERENCED_FROM_DISABLE = 0x0D
+    NOT_REFERENCED_FROM_READY = 0x0E
+    NOT_REFERENCED_FROM_MOVING = 0x0F
     NOT_REFERENCED_STAGE_ERROR = 0x10
     NOT_REFERENCED_FROM_JOGGING = 0x11
     CONFIGURATION = 0x14
-    HOMING_RS232 = 0x1e
-    HOMING_SMCRC = 0x1f
+    HOMING_RS232 = 0x1E
+    HOMING_SMCRC = 0x1F
     MOVING = 0x28
     READY_FROM_HOMING = 0x32
     READY_FROM_MOVING = 0x33
     READY_FROM_DISABLE = 0x34
     READY_FROM_JOGGING = 0x35
-    DISABLE_FROM_READY = 0x3c
-    DISABLE_FROM_MOVING = 0x3d
-    DISABLE_FROM_JOGGING = 0x3e
+    DISABLE_FROM_READY = 0x3C
+    DISABLE_FROM_MOVING = 0x3D
+    DISABLE_FROM_JOGGING = 0x3E
     JOGGING_FROM_READY = 0x46
     JOGGING_FROM_DISABLE = 0x47
 
@@ -140,6 +142,7 @@ class ErrorAndState:
     """
     Information returned when querying positionner error and controller state.
     """
+
     state = None
     output_power_exceeded = None
     dc_voltage_too_low = None
@@ -158,24 +161,26 @@ class ErrorAndState:
         :return: True if state is not one of the NOT_REFERENCED_x states.
         """
         if self.state is None:
-            raise RuntimeException('state not available')
+            raise RuntimeException("state not available")
         else:
             return not (
-                (self.state.value >= State.NOT_REFERENCED_FROM_RESET.value) and
-                (self.state.value <= State.NOT_REFERENCED_FROM_JOGGING.value))
+                (self.state.value >= State.NOT_REFERENCED_FROM_RESET.value)
+                and (self.state.value <= State.NOT_REFERENCED_FROM_JOGGING.value)
+            )
 
     @property
     def is_ready(self):
-        """ :return: True if state is one of READY_x states. """
-        return (
-            (self.state.value >= State.READY_FROM_HOMING.value) and
-            (self.state.value <= State.READY_FROM_JOGGING.value))
+        """:return: True if state is one of READY_x states."""
+        return (self.state.value >= State.READY_FROM_HOMING.value) and (
+            self.state.value <= State.READY_FROM_JOGGING.value
+        )
 
 
 class SMC100:
     """
     Class to command Newport SMC100 controllers.
     """
+
     def __init__(self, dev, addresses):
         """
         :param dev: Serial device string (for instance '/dev/ttyUSB0' or
@@ -196,11 +201,11 @@ class SMC100:
         # Errors prevent any command being executed. Reading the controller
         # state at startup returns and clear error flags.
         for addr in self.addresses:
-            self.link.query(addr, 'TS')
+            self.link.query(addr, "TS")
 
     @property
     def num_axis(self):
-        """ :return: Number of axis of this stage. """
+        """:return: Number of axis of this stage."""
         return len(self.addresses)
 
     @property
@@ -215,23 +220,23 @@ class SMC100:
         # It is faster to send all the request and then get all the responses.
         # This reduces a lot the latency.
         for addr in self.addresses:
-            self.link.query(addr, 'TP', lazy_res=True)
+            self.link.query(addr, "TP", lazy_res=True)
         for i, addr in enumerate(self.addresses):
-            val = float(self.link.response(addr, 'TP'))
+            val = float(self.link.response(addr, "TP"))
             result[i] = val
         return result
 
     @position.setter
     def position(self, vec):
         if len(vec) != self.num_axis:
-            raise ValueError('Invalid position vector dimension.')
+            raise ValueError("Invalid position vector dimension.")
         for i, addr in enumerate(self.addresses):
-            self.link.send(addr, f'PA{vec[i]}')
+            self.link.send(addr, f"PA{vec[i]}")
 
     def reset(self):
-        """ Reset stage controllers. """
+        """Reset stage controllers."""
         for addr in self.addresses:
-            self.link.send(addr, 'RS')
+            self.link.send(addr, "RS")
 
     def home_search(self):
         """
@@ -240,7 +245,7 @@ class SMC100:
         may be better to use home_search_if_required.
         """
         for addr in self.addresses:
-            self.link.send(addr, 'OR')
+            self.link.send(addr, "OR")
 
     def home_search_if_required(self):
         """
@@ -249,7 +254,7 @@ class SMC100:
         for i, addr in enumerate(self.addresses):
             state = self.get_error_and_state(i)
             if not state.is_referenced:
-                self.link.send(addr, 'OR')
+                self.link.send(addr, "OR")
 
     def get_error_and_state(self, axis):
         """
@@ -259,7 +264,7 @@ class SMC100:
         :axis: Axis index.
         :return: Current error and state, in a ErrorAndState instance.
         """
-        res = self.link.query(self.addresses[axis], 'TS')
+        res = self.link.query(self.addresses[axis], "TS")
         if len(res) != 6:
             raise ProtocolError()
         value = int(res[:4], 16)
@@ -278,15 +283,15 @@ class SMC100:
         return result
 
     def enter_configuration_state(self, addr):
-        """ Enter configuration state. """
-        self.link.send(addr, 'PW1')
+        """Enter configuration state."""
+        self.link.send(addr, "PW1")
 
     def leave_configuration_state(self, addr):
         """
         Leave configuration state. If defined parameters are valid, the
         controller saves them in the flash memory.
         """
-        self.link.send(addr, 'PW0')
+        self.link.send(addr, "PW0")
 
     @property
     def controller_address(self, addr):
@@ -295,13 +300,13 @@ class SMC100:
         Changing the address is only possible when the controller is in
         configuration state.
         """
-        return int(self.link.query(addr, 'SA'))
+        return int(self.link.query(addr, "SA"))
 
     @controller_address.setter
     def controller_address(self, addr, value):
         if value not in range(2, 32):
-            raise ValueError('Invalid controller address')
-        self.link.send(addr, f'SA{value}')
+            raise ValueError("Invalid controller address")
+        self.link.send(addr, f"SA{value}")
 
     def move_relative(self, addr, offset):
         """
@@ -310,7 +315,7 @@ class SMC100:
         :param addr: addr of axis
         :param offset:
         """
-        self.link.send(addr, f'PR{offset}')
+        self.link.send(addr, f"PR{offset}")
 
     def stop(self, addr=None):
         """
@@ -319,9 +324,9 @@ class SMC100:
         :param addr: address of the axis to stop
         """
         if addr is None:
-            self.link.serial.write('ST\r\n'.encode())
+            self.link.serial.write("ST\r\n".encode())
         else:
-            self.link.send(addr, 'ST')
+            self.link.send(addr, "ST")
 
     def set_position(self, addr, value, blocking=True):
         """
@@ -331,7 +336,7 @@ class SMC100:
         :param blocking: if True, blocking mode: wait for the position to be
             reached before exit.
         """
-        self.link.send(addr, f'PA{value}')
+        self.link.send(addr, f"PA{value}")
 
         if blocking:
             while self.get_error_and_state(1).state.value == State.MOVING:
