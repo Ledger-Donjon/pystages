@@ -30,6 +30,10 @@ class Stage:
         # It can be used to add some temporization and/or UI updates.
         self.wait_routine = None
 
+        # Minimum and maximum software limits
+        self._minimums: Optional[Vector] = None
+        self._maximums: Optional[Vector] = None
+
     @property
     def position(self) -> Vector:
         """
@@ -73,3 +77,33 @@ class Stage:
         self.position = value
         if wait:
             self.wait_move_finished()
+
+    def check_dimension(self, value: Vector):
+        """
+        Check if the given value's dimension is consistent according to the number of axes of the Stage.
+        :param value: The vector to check
+        :raises ValueError: If dimension is inconsistent with the number of axis of the Stage.
+        """
+        if self.num_axis != len(value):
+            raise ValueError(
+                f"The given vector's dimension {len(value)} is incorrect: expected {self.num_axis}"
+            )
+    @property
+    def minimums(self) -> Optional[Vector]:
+        return self._minimums
+
+    @minimums.setter
+    def minimums(self, value: Optional[Vector]):
+        if value is not None:
+            self.check_dimension(value)
+        self._minimums = value
+
+    @property
+    def maximums(self) -> Optional[Vector]:
+        return self._maximums
+
+    @maximums.setter
+    def maximums(self, value: Optional[Vector]):
+        if value is not None:
+            self.check_dimension(value)
+        self._maximums = value
