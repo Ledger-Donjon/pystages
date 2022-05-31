@@ -326,15 +326,13 @@ class SMC100(Stage):
         """
         self.link.send(addr, "PW0")
 
-    @property
     def controller_address(self, addr: int):
         """
         Get controller's RS-485 address. int in [2, 31].
         """
         return int(self.link.query(addr, "SA"))
 
-    @controller_address.setter
-    def controller_address(self, addr, value):
+    def set_controller_address(self, addr: int, value: int):
         """
         Set controller's RS-485 address. int in [2, 31].
         Changing the address is only possible when the controller is in
