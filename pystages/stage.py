@@ -26,6 +26,8 @@ class Stage:
         :param num_axis: The number of axis of the stage, can be updated or set after initialisation of the object.
         """
         self.num_axis = num_axis
+        # The wait routine is a function that is called when the wait_move_finished is looping.
+        # It can be used to add some temporization and/or UI updates.
         self.wait_routine = None
 
     @property

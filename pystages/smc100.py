@@ -372,7 +372,7 @@ class SMC100(Stage):
 
         :param addr: address of the controller to reset
         """
-        for addr in (self.addresses if addr is None else [addr]):
+        for addr in self.addresses if addr is None else [addr]:
             self.link.send(addr, "RS")
 
     def set_position(self, addr, value, blocking=True):
