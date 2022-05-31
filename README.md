@@ -12,6 +12,7 @@ are implemented):
 - New Scale Technologies M3-FS focus modules (serial only)
 - Newport SMC100 motion controllers
 - Tic Stepper Motor controller (USB only)
+- CNC Router with GRBL/GCode instructions (CNC 3018-PRO)
 
 The library also provides helper classes for basic vector manipulation and 
 autofocus calculation
@@ -23,6 +24,6 @@ Documentation is available on [Read the Docs](https://pystages.readthedocs.io).
 ## Requirements
 
 This library requires the following packages:
-- pyserial
-- numpy
-
+- [pyserial](https://pypi.org/project/pyserial/)
+- [numpy](https://pypi.org/project/numpy/)
+- [pyusb](https://pypi.org/project/pyusb/)
