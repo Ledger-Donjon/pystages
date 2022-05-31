@@ -20,9 +20,10 @@
 import serial
 from binascii import hexlify
 from .exceptions import ConnectionFailure, ProtocolError, VersionNotSupported
+from .stage import Stage
 
 
-class M3FS:
+class M3FS(Stage):
     """
     Class to command New Scale Technologies M3-FS focus modules in serial mode
     (VCP).
@@ -40,6 +41,7 @@ class M3FS:
         :param dev: Serial device. For instance 'COM0'.
         :param baudrate: Serial baudrate.
         """
+        super().__init__()
         self.resolution_um = 0.5
         try:
             self.serial = serial.Serial(
@@ -140,7 +142,7 @@ class M3FS:
         motor_status = int.from_bytes(res[0], "big", signed=False)
         position = int.from_bytes(res[1], "big", signed=True)
         error = int.from_bytes(res[2], "big", signed=True)
-        return (motor_status, position, error)
+        return motor_status, position, error
 
     @property
     def position(self):
@@ -155,6 +157,9 @@ class M3FS:
 
     @position.setter
     def position(self, value):
+        # To check dimension and range of the given value
+        super(__class__, self.__class__).position.fset(self, value)
+
         val = round(value / self.resolution_um).to_bytes(4, "big", signed=True)
         self.command(8, hexlify(val).decode())
         # Now wait until motor is not moving anymore

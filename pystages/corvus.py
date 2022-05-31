@@ -14,16 +14,17 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 #
-# Copyright 2018-2020 Ledger SAS, written by Olivier Hériveaux
+# Copyright 2018-2022 Ledger SAS, written by Olivier Hériveaux
 
 
 import serial
 import time
 from .exceptions import ConnectionFailure
 from .vector import Vector
+from .stage import Stage
 
 
-class Corvus:
+class Corvus(Stage):
     """
     Class to command Corvus Eco XYZ stage controller.
     """
@@ -35,6 +36,7 @@ class Corvus:
 
         :param dev: Serial device. For instance '/dev/ttyUSB0'.
         """
+        super().__init__(num_axis = 3)
         try:
             self.serial = serial.Serial(dev, 57600)
         except serial.serialutil.SerialException as e:
@@ -56,7 +58,7 @@ class Corvus:
         # Enable joystick
         self.enable_joystick()
 
-    def send(self, command):
+    def send(self, command: str):
         """
         Send a command.
 
@@ -65,7 +67,7 @@ class Corvus:
         """
         self.serial.write((command + " ").encode())
 
-    def receive(self):
+    def receive(self) -> str:
         """
         Read input serial buffer to get a response. Blocks until a response is
         available.
@@ -79,7 +81,7 @@ class Corvus:
         # Remove CR-LF and return as string
         return response[:-2].decode()
 
-    def send_receive(self, command):
+    def send_receive(self, command: str) -> str:
         """
         Send a command, wait and return the response.
 
@@ -137,11 +139,6 @@ class Corvus:
     def is_moving(self):
         return bool(int(self.send_receive("st")) & 1)
 
-    def wait_move_finished(self):
-        """Wait until move is finished."""
-        while is_moving:
-            pass
-
     def set_origin(self):
         """Set current stage coordinates as the new coordinates origin."""
         self.send("0 0 0 setpos")
@@ -167,21 +164,12 @@ class Corvus:
         return Vector(*tuple(float(x) for x in res))
 
     @position.setter
-    def position(self, value):
-        self.move_to(value, wait=True)
-
-    def move_to(self, value, wait: bool = True):
-        """
-        Move stage to a new position.
-
-        :param value: New stage position.
-        :param wait: If True, wait for stage to be at the new position,
-            otherwise return immediately.
-        """
+    def position(self, value: Vector):
+        # To check dimension and range of the given value
+        super(__class__, self.__class__).position.fset(self, value)
         self.send("3 setdim")
         self.send("{0} {1} {2} move".format(value.x, value.y, value.z))
-        if wait:
-            self.wait_move_finished()
+
 
     @property
     def velocity(self):
@@ -226,4 +214,4 @@ class Corvus:
         Reactivates the last saved parameters. Beware this might change units,
         which may be dangerous if care is not taken.
         """
-        self.save("restore")
+        self.send("restore")

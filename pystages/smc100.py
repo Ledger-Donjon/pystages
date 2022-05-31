@@ -14,21 +14,23 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 #
-# Copyright 2018-2020 Ledger SAS,
-# written by Olivier Hériveaux and Manuel San Pedro
+# Copyright 2018-2022 Ledger SAS,
+# written by Olivier Hériveaux, Manuel San Pedro and Michaël Mouchous
 
 
 import serial
 import time
 from .vector import Vector
 from .exceptions import ProtocolError, ConnectionFailure
-from enum import Enum
+from enum import Enum, IntFlag
+from typing import Optional, List
+from .stage import Stage
 
 
 class Link:
     """
     Class to control Newport SMC100 controllers. This uses a serial device to
-    communicate with multiple controllers which may be configured in daiy-chain
+    communicate with multiple controllers which may be configured in daisy-chain
     configuration.
 
     Current design allows multiple instance of SMC100 to share the same
@@ -40,26 +42,27 @@ class Link:
     controller in the daisy chain is always zero.
     """
 
-    def __init__(self, dev):
+    def __init__(self, dev: str):
         """
         :param dev: Serial device. For instance '/dev/ttyUSB0' or 'COM0'.
         """
         try:
-            self.serial = serial.Serial(dev, 57600)
+            self.serial = serial.Serial(port=dev, baudrate=57600, xonxoff=True)
         except serial.serialutil.SerialException as e:
             raise ConnectionFailure() from e
 
-    def send(self, address, command):
+    def send(self, address: Optional[int], command: str):
         """
         Send a command to a controller.
 
-        :param address: Controller address.
+        :param address: Controller address. If None, only the command is sent without prefix.
         :param command: Command string. Don't include address nor CR LF since
             they are added automatically by this method.
         """
-        self.serial.write(f"{address}{command}\r\n".encode())
+        to_send = f'{"" if address is None else address}{command}\r\n'
+        self.serial.write(to_send.encode())
 
-    def receive(self):
+    def receive(self) -> Optional[str]:
         """
         Read input serial buffer to get a response. Blocks until a response is
         available.
@@ -69,15 +72,18 @@ class Link:
         # Read at least 2 bytes for CR-LF.
         response = ""
         while True:
-            c = self.serial.read(1)[0]
+            # Communication contains only ASCII characters, for robustness, HSBit is masked
+            c = self.serial.read(1)[0] & 0x7F
             if c == ord("\n"):
                 return response
             # We may receive null characters after controller reset. Just
-            # ignore it and we will be fine, they are useless anyway.
+            # ignore it, and we will be fine, they are useless anyway.
             elif c not in (ord("\r"), 0):
                 response += chr(c)
 
-    def query(self, address, command, lazy_res=False):
+    def query(
+        self, address: Optional[int], command: str, lazy_res: bool = False
+    ) -> Optional[str]:
         """
         Send a query.
 
@@ -91,9 +97,13 @@ class Link:
         """
         self.send(address, command + "?")
         if not lazy_res:
-            return self.response(address, command)
+            try:
+                return self.response(address, command)
+            except ProtocolError:
+                # Retry to send the query
+                return self.query(address, command, lazy_res)
 
-    def response(self, address, command):
+    def response(self, address: Optional[int], command: str) -> str:
         """
         Get and return the response of a query. Parameters are required to
         check the header of the response.
@@ -101,11 +111,11 @@ class Link:
         :param address: Controller address. int.
         :param command: Command string, without '?'.
         """
-        query_string = f"{address}{command}"
+        query_string = f'{"" if address is None else address}{command}'
         res = self.receive()
         if res[: len(query_string)] != query_string:
-            raise ProtocolError()
-        return res[len(query_string) :]
+            raise ProtocolError(query_string, res)
+        return res[len(query_string):]
 
 
 class State(Enum):
@@ -138,30 +148,39 @@ class State(Enum):
     JOGGING_FROM_DISABLE = 0x47
 
 
+class Error(IntFlag):
+    """
+    Information returned when querying positioner error.
+    """
+
+    OUTPUT_POWER_EXCEEDED = 1 << 9
+    DC_VOLTAGE_TOO_LOW = 1 << 8
+    WRONG_STAGE = 1 << 7
+    HOMING_TIMEOUT = 1 << 6
+    FOLLOWING_ERROR = 1 << 5
+    SHORT_CIRCUIT = 1 << 4
+    RMS_CURRENT_LIMIT = 1 << 3
+    PEAK_CURRENT_LIMIT = 1 << 2
+    POSITIVE_END_OF_RUN = 1 << 1
+    NEGATIVE_END_OF_RUN = 1 << 0
+    NO_ERROR = 0
+
+
 class ErrorAndState:
     """
-    Information returned when querying positionner error and controller state.
+    Information returned when querying positioner error and controller state.
     """
 
     state = None
-    output_power_exceeded = None
-    dc_voltage_too_low = None
-    wrong_stage = None
-    homing_timeout = None
-    following_error = None
-    short_circuit = None
-    rms_current_limit = None
-    peak_current_limit = None
-    positive_end_of_run = None
-    negative_end_of_run = None
+    error = None
 
     @property
-    def is_referenced(self):
+    def is_referenced(self) -> bool:
         """
         :return: True if state is not one of the NOT_REFERENCED_x states.
         """
         if self.state is None:
-            raise RuntimeException("state not available")
+            raise RuntimeError("state not available")
         else:
             return not (
                 (self.state.value >= State.NOT_REFERENCED_FROM_RESET.value)
@@ -169,25 +188,52 @@ class ErrorAndState:
             )
 
     @property
-    def is_ready(self):
+    def is_ready(self) -> bool:
         """:return: True if state is one of READY_x states."""
         return (self.state.value >= State.READY_FROM_HOMING.value) and (
             self.state.value <= State.READY_FROM_JOGGING.value
         )
 
+    @property
+    def is_moving(self) -> bool:
+        """:return: True if state is MOVING."""
+        return self.state.value == State.MOVING.value
 
-class SMC100:
+    @property
+    def is_homing(self) -> bool:
+        """:return: True if state is one of HOMING_x states."""
+        return (self.state.value >= State.HOMING_RS232.value) and (
+            self.state.value <= State.HOMING_SMCRC.value
+        )
+
+    @property
+    def is_jogging(self):
+        """:return: True if state is one of JOGGING_x states."""
+        return (self.state.value >= State.JOGGING_FROM_READY.value) and (
+            self.state.value <= State.JOGGING_FROM_DISABLE.value
+        )
+
+    @property
+    def is_disabled(self):
+        """:return: True if state is one of DISABLE_x states."""
+        return (self.state.value >= State.DISABLE_FROM_READY.value) and (
+            self.state.value <= State.DISABLE_FROM_JOGGING.value
+        )
+
+
+class SMC100(Stage):
     """
     Class to command Newport SMC100 controllers.
     """
 
-    def __init__(self, dev, addresses):
+    def __init__(self, dev, addresses: List[int]):
         """
         :param dev: Serial device string (for instance '/dev/ttyUSB0' or
             'COM0'), an instance of Link, or an instance of SMC100 sharing
             the same serial device.
         :param addresses: An iterable of int controller addresses.
         """
+        super().__init__(num_axis=len(addresses))
         if isinstance(dev, Link):
             self.link = dev
         elif isinstance(dev, SMC100):
@@ -204,11 +250,6 @@ class SMC100:
             self.link.query(addr, "TS")
 
     @property
-    def num_axis(self):
-        """:return: Number of axis of this stage."""
-        return len(self.addresses)
-
-    @property
     def position(self):
         """
         Stage position, in micrometers.
@@ -219,70 +260,62 @@ class SMC100:
         result = Vector(dim=self.num_axis)
         # It is faster to send all the request and then get all the responses.
         # This reduces a lot the latency.
-        for addr in self.addresses:
-            self.link.query(addr, "TP", lazy_res=True)
         for i, addr in enumerate(self.addresses):
-            val = float(self.link.response(addr, "TP"))
+            r = self.link.query(addr, "TP", lazy_res=False)
+            val = float(r)
             result[i] = val
         return result
 
     @position.setter
-    def position(self, vec):
-        if len(vec) != self.num_axis:
-            raise ValueError("Invalid position vector dimension.")
-        for i, addr in enumerate(self.addresses):
-            self.link.send(addr, f"PA{vec[i]}")
+    def position(self, value: Vector):
+        # To check dimension and range of the given value
+        super(__class__, self.__class__).position.fset(self, value)
 
-    def reset(self):
-        """Reset stage controllers."""
-        for addr in self.addresses:
-            self.link.send(addr, "RS")
+        # Enable the motors
+        self.is_disabled = False
+        commands = []
+        for position, addr in zip(value, self.addresses):
+            commands.append(f"{addr}PA{position:.5f}")
+        self.link.send(None, "\r\n".join(commands))
 
     def home_search(self):
         """
         Perform home search.
-        Home search is performed even if the axises are already referenced. It
-        may be better to use home_search_if_required.
+        Home search is performed even if the axes are already referenced.
+        It may be better to use home_search_if_required.
         """
         for addr in self.addresses:
+            # It has been observed that OR may be not effective if another command (like TS?) is not
+            # performed before
+            self.get_error_and_state(addr=addr)
             self.link.send(addr, "OR")
 
     def home_search_if_required(self):
         """
-        Perfom home search for axis which are not referenced.
+        Perform home search for all axes which are not referenced.
         """
-        for i, addr in enumerate(self.addresses):
-            state = self.get_error_and_state(i)
+        for addr in self.addresses:
+            state = self.get_error_and_state(addr=addr)
             if not state.is_referenced:
                 self.link.send(addr, "OR")
 
-    def get_error_and_state(self, axis):
+    def get_error_and_state(self, addr: int):
         """
         Query current motion controller errors and state.
         Querying the error and state may clear error flags.
 
-        :axis: Axis index.
+        :param addr: Address of the axis.
         :return: Current error and state, in a ErrorAndState instance.
         """
-        res = self.link.query(self.addresses[axis], "TS")
+        res = self.link.query(addr, "TS")
         if len(res) != 6:
-            raise ProtocolError()
-        value = int(res[:4], 16)
+            raise ProtocolError("TS", res)
         result = ErrorAndState()
-        result.output_power_exceeded = bool(value & (1 << 9))
-        result.dc_voltage_too_low = bool(value & (1 << 8))
-        result.wrong_stage = bool(value & (1 << 7))
-        result.homing_timeout = bool(value & (1 << 6))
-        result.following_error = bool(value & (1 << 5))
-        result.short_circuit = bool(value & (1 << 4))
-        result.rms_current_limit = bool(value & (1 << 3))
-        result.peak_current_limit = bool(value & (1 << 2))
-        result.positive_end_of_run = bool(value & (1 << 1))
-        result.negative_end_of_run = bool(value & 1)
+        result.error = Error(int(res[:4], 16))
         result.state = State(int(res[4:], 16))
         return result
 
-    def enter_configuration_state(self, addr):
+    def enter_configuration_state(self, addr: int):
         """Enter configuration state."""
         self.link.send(addr, "PW1")
 
@@ -293,59 +326,105 @@ class SMC100:
         """
         self.link.send(addr, "PW0")
 
-    @property
-    def controller_address(self, addr):
+    def controller_address(self, addr: int):
         """
-        Controller's RS-485 address. int in [2, 31].
-        Changing the address is only possible when the controller is in
-        configuration state.
+        Get controller's RS-485 address. int in [2, 31].
         """
         return int(self.link.query(addr, "SA"))
 
-    @controller_address.setter
-    def controller_address(self, addr, value):
+    def set_controller_address(self, addr: int, value: int):
+        """
+        Set controller's RS-485 address. int in [2, 31].
+        Changing the address is only possible when the controller is in
+        configuration state.
+        """
         if value not in range(2, 32):
             raise ValueError("Invalid controller address")
         self.link.send(addr, f"SA{value}")
 
-    def move_relative(self, addr, offset):
+    def move_relative(self, addr: int, offset: float):
         """
-        Move relatively an axis from  a given offset
+        Moves relatively an axis from a given offset
 
-        :param addr: addr of axis
-        :param offset:
+        :param addr: addr of axis to move
+        :param offset: offset value
         """
-        self.link.send(addr, f"PR{offset}")
+        # Enable the motors
+        self.is_disabled = False
+        self.link.send(addr, f"PR{offset:.5f}")
 
-    def stop(self, addr=None):
+    def stop(self, addr: Optional[int] = None):
         """
-        Stop the motion on an axis. On all axs if addr not specitied.
+        Stops the motion on an axis. On all axis if addr not specified.
 
-        :param addr: address of the axis to stop
+        :param addr: Address of the axis to stop. If None, stop all the controllers
         """
-        if addr is None:
-            self.link.serial.write("ST\r\n".encode())
-        else:
-            self.link.send(addr, "ST")
+        self.link.send(addr, "ST")
 
-    def set_position(self, addr, value, blocking=True):
+    def reset(self, addr: Optional[int] = None):
         """
-        set the position of a single axis
+        Resets the controller at specified address. For all controllers if not specified
 
-        :param addr: address of the axis to stop
+        :param addr: address of the controller to reset
+        """
+        for addr in self.addresses if addr is None else [addr]:
+            self.link.send(addr, "RS")
+
+    def set_position(self, addr: int, value: float, blocking=True):
+        """
+        Sets the position of a single axis
+
+        :param addr: address of the axis to set the position
+        :param value: stage position, in micrometers
         :param blocking: if True, blocking mode: wait for the position to be
             reached before exit.
         """
-        self.link.send(addr, f"PA{value}")
+        # Enable the motors
+        self.is_disabled = False
+        self.link.send(addr, f"PA{value:.5f}")
 
         if blocking:
-            while self.get_error_and_state(1).state.value == State.MOVING:
+            error_and_state = self.get_error_and_state(addr=addr)
+            while error_and_state.is_moving:
                 time.sleep(0.1)
 
-    def wait_move_finished(self):
+    @property
+    def is_moving(self) -> bool:
         """
-        Wait until all axis are ready.
+        Indicates if the stage is currently moving due to MOVE, HOME or JOG operation.
+        :return: Moving state of the stage
         """
-        for i in range(self.num_axis):
-            while not self.get_error_and_state(i).is_ready:
-                pass
+        for addr in self.addresses:
+            state = self.get_error_and_state(addr=addr)
+            if state.is_moving or state.is_homing or state.is_jogging:
+                return True
+        return False
+
+    @property
+    def is_disabled(self) -> bool:
+        """
+        Indicates if the stage is currently in DISABLE state.
+        :return: Disabled state of the stage
+        """
+        for addr in self.addresses:
+            state = self.get_error_and_state(addr=addr)
+            if state.is_disabled:
+                return True
+        return False
+
+    @is_disabled.setter
+    def is_disabled(self, value: bool):
+        # self.is_disabled = True makes enter DISABLE state
+        self.enter_leave_disable_state(None, enter=value)
+
+    def enter_leave_disable_state(self, addr: Optional[int], enter: bool = True):
+        """
+        Permits for a specified axis to enter or leave the DISABLE state.
+        DISABLE state makes the motor not energized and opens the control loop.
+
+        :param addr: address of the axis to operate. If None is passed, it applies to all controllers
+        :param enter: True to enter, False to leave DISABLE state
+        """
+        # MM0 changes the controller’s state from READY to DISABLE (enter)
+        # MM1 changes the controller’s state from DISABLE to READY (leave)
+        self.link.send(addr, f"MM{0 if enter else 1}")

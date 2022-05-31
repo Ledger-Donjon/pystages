@@ -21,6 +21,7 @@ import usb.core
 import usb.util
 from enum import Enum
 from time import sleep
+from .stage import Stage
 
 
 class TicVariable(Enum):
@@ -112,7 +113,7 @@ class TicDirection(Enum):
     FORWARD = 1
 
 
-class Tic:
+class Tic(Stage):
     """
     Very basic driver class for Polulu Tic Stepper Motor controller, connected
     in USB.
@@ -122,6 +123,7 @@ class Tic:
     """
 
     def __init__(self):
+        super().__init__()
         self.dev = usb.core.find(idVendor=0x1FFB, idProduct=0x00B5)
         self.dev.set_configuration()
         self.energize()
@@ -224,6 +226,8 @@ class Tic:
 
     @position.setter
     def position(self, value):
+        # To check dimension and range of the given value
+        super(__class__, self.__class__).position.fset(self, value)
         self.target_position = value
         while self.position != value:
             sleep(self.poll_interval)
