@@ -56,7 +56,7 @@ class M3FS:
         except ProtocolError as e:
             raise ConnectionFailure() from e
         self.serial.timeout = None
-        if res != '1 VER 4.7.3 M3-FS':
+        if res != "1 VER 4.7.3 M3-FS":
             raise VersionNotSupported(res)
 
     def __send(self, command, data=None):
@@ -67,14 +67,13 @@ class M3FS:
         :param data: Extra data string.
         """
         if data is not None:
-            assert (('<' not in data) and ('>' not in data) and
-                    ('\r' not in data))
+            assert ("<" not in data) and (">" not in data) and ("\r" not in data)
         if command not in range(100):
-            raise ValueError('Invalid command ID.')
-        full_command = '<{0:02d}'.format(command)
+            raise ValueError("Invalid command ID.")
+        full_command = "<{0:02d}".format(command)
         if data is not None:
-            full_command += ' ' + data
-        full_command += '>\r'
+            full_command += " " + data
+        full_command += ">\r"
         self.serial.write(full_command.encode())
 
     def __receive(self):
@@ -87,7 +86,7 @@ class M3FS:
         b = self.serial.read(1)
         if len(b) != 1:
             raise ProtocolError()
-        if b[0] != ord('<'):
+        if b[0] != ord("<"):
             raise ProtocolError()
         # Get the response bytes until '>'
         result = bytearray()
@@ -96,17 +95,17 @@ class M3FS:
             if len(b) != 1:
                 raise ProtocolError()
             b = b[0]
-            if b == ord('>'):
+            if b == ord(">"):
                 break
             else:
-                if b == ord('\r'):
+                if b == ord("\r"):
                     raise ProtocolError()
                 result.append(b)
         # Get carriage return
         b = self.serial.read(1)
         if len(b) != 1:
             raise ProtocolError()
-        if b[0] != ord('\r'):
+        if b[0] != ord("\r"):
             raise ProtocolError()
         return result.decode()
 
@@ -127,7 +126,7 @@ class M3FS:
         if len(res) == 2:
             return None
         else:
-            if res[2] != ' ':
+            if res[2] != " ":
                 raise ProtocolError()
             return res[3:]
 
@@ -137,10 +136,10 @@ class M3FS:
 
         :return: Tuple of 3 int.
         """
-        res = list(bytes.fromhex(x) for x in self.command(10).split(' '))
-        motor_status = int.from_bytes(res[0], 'big', signed=False)
-        position = int.from_bytes(res[1], 'big', signed=True)
-        error = int.from_bytes(res[2], 'big', signed=True)
+        res = list(bytes.fromhex(x) for x in self.command(10).split(" "))
+        motor_status = int.from_bytes(res[0], "big", signed=False)
+        position = int.from_bytes(res[1], "big", signed=True)
+        error = int.from_bytes(res[2], "big", signed=True)
         return (motor_status, position, error)
 
     @property
@@ -156,7 +155,7 @@ class M3FS:
 
     @position.setter
     def position(self, value):
-        val = round(value / self.resolution_um).to_bytes(4, 'big', signed=True)
+        val = round(value / self.resolution_um).to_bytes(4, "big", signed=True)
         self.command(8, hexlify(val).decode())
         # Now wait until motor is not moving anymore
         while self.__get_closed_loop_status()[0] & 4:
