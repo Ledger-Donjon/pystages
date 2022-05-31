@@ -15,6 +15,7 @@
 #
 #
 # Copyright 2018-2022 Ledger SAS, written by Michaël Mouchous
+import time
 from typing import Optional
 
 import serial
@@ -60,15 +61,40 @@ class CNCRouter(Stage):
         Sends a CTRL+X control to reset the GRBL
         :return: True if the GRBL sends the correct prompt
         """
-        self.send("\030", eol="")
-        self.receive()
-        response = self.receive()
-        # Expected ATR is 'Grbl x.xx ['$' for help]'
-        return response.startswith("Grbl") and response.endswith("['$' for help]")
+        self.serial.flush()
+        self.send("\030", eol='')
+        time.sleep(0.05)
+        self.send('')
+
+        responses = self.receive_lines()
+        # Expected ATR is 'Grbl x.xx ['$' for help]' for first line.
+        ok = responses[0].startswith("Grbl") and responses[0].endswith("['$' for help]")
+        if not ok:
+            return False
+        # Unlock if necessary
+        if "[MSG:'$H'|'$X' to unlock]" in responses:
+            ok = self.unlock()
+        return ok
+
+    def sleep(self):
+        """
+        Sends a $SLP command. The stage responds a message '[MSG:Sleeping]' after 'ok'.
+        """
+        self.send_receive("$SLP")
+        return self.receive()
+
+    def unlock(self) -> bool:
+        """
+        Unlock the motor. It may happend when the stage has gone further its limits,
+        and raised an alarm, or has been disabled when going in sleep mode ('$SLP')
+        :return: True if message [MSG:Caution: Unlock] has been returned
+        """
+        self.send("$X")
+        return '[MSG:Caution: Unlocked]' in self.receive_lines()
 
     def get_grbl_settings(self) -> dict:
         """
-
+        Obtains and parse the list of GRBLSettings with the '$$' command.
         :return: A dictionary containing the GRBLSetting as key and its corresponding value
         """
         self.send("$$")
@@ -133,7 +159,8 @@ class CNCRouter(Stage):
         """
         lines = []
         while (l := self.serial.readline().strip().decode()) != until:
-            lines.append(l)
+            if len(l):
+                lines.append(l)
         return lines
 
     def receive(self) -> str:
