@@ -23,14 +23,14 @@ import time
 from .vector import Vector
 from .exceptions import ProtocolError, ConnectionFailure
 from enum import Enum, IntFlag
-from typing import Optional
+from typing import Optional, List
 from .stage import Stage
 
 
 class Link:
     """
     Class to control Newport SMC100 controllers. This uses a serial device to
-    communicate with multiple controllers which may be configured in daiy-chain
+    communicate with multiple controllers which may be configured in daisy-chain
     configuration.
 
     Current design allows multiple instance of SMC100 to share the same
@@ -77,7 +77,7 @@ class Link:
             if c == ord("\n"):
                 return response
             # We may receive null characters after controller reset. Just
-            # ignore it and we will be fine, they are useless anyway.
+            # ignore it, and we will be fine, they are useless anyway.
             elif c not in (ord("\r"), 0):
                 response += chr(c)
 
@@ -99,11 +99,11 @@ class Link:
         if not lazy_res:
             try:
                 return self.response(address, command)
-            except ProtocolError as e:
+            except ProtocolError:
                 # Retry to send the query
                 return self.query(address, command, lazy_res)
 
-    def response(self, address, command):
+    def response(self, address: Optional[int], command: str) -> str:
         """
         Get and return the response of a query. Parameters are required to
         check the header of the response.
@@ -115,7 +115,7 @@ class Link:
         res = self.receive()
         if res[: len(query_string)] != query_string:
             raise ProtocolError(query_string, res)
-        return res[len(query_string) :]
+        return res[len(query_string):]
 
 
 class State(Enum):
@@ -150,7 +150,7 @@ class State(Enum):
 
 class Error(IntFlag):
     """
-    Information returned when querying positionner error.
+    Information returned when querying positioner error.
     """
 
     OUTPUT_POWER_EXCEEDED = 1 << 9
@@ -168,14 +168,14 @@ class Error(IntFlag):
 
 class ErrorAndState:
     """
-    Information returned when querying positionner error and controller state.
+    Information returned when querying positioner error and controller state.
     """
 
     state = None
     error = None
 
     @property
-    def is_referenced(self):
+    def is_referenced(self) -> bool:
         """
         :return: True if state is not one of the NOT_REFERENCED_x states.
         """
@@ -188,19 +188,19 @@ class ErrorAndState:
             )
 
     @property
-    def is_ready(self):
+    def is_ready(self) -> bool:
         """:return: True if state is one of READY_x states."""
         return (self.state.value >= State.READY_FROM_HOMING.value) and (
             self.state.value <= State.READY_FROM_JOGGING.value
         )
 
     @property
-    def is_moving(self):
+    def is_moving(self) -> bool:
         """:return: True if state is MOVING."""
         return self.state.value == State.MOVING.value
 
     @property
-    def is_homing(self):
+    def is_homing(self) -> bool:
         """:return: True if state is one of HOMING_x states."""
         return (self.state.value >= State.HOMING_RS232.value) and (
             self.state.value <= State.HOMING_SMCRC.value
@@ -226,7 +226,7 @@ class SMC100(Stage):
     Class to command Newport SMC100 controllers.
     """
 
-    def __init__(self, dev, addresses):
+    def __init__(self, dev, addresses: List[int]):
         """
         :param dev: Serial device string (for instance '/dev/ttyUSB0' or
             'COM0'), an instance of Link, or an instance of SMC100 sharing
@@ -286,7 +286,7 @@ class SMC100(Stage):
     def home_search(self):
         """
         Perform home search.
-        Home search is performed even if the axises are already referenced.
+        Home search is performed even if the axes are already referenced.
         It may be better to use home_search_if_required.
         """
         for addr in self.addresses:
@@ -297,19 +297,19 @@ class SMC100(Stage):
 
     def home_search_if_required(self):
         """
-        Perfom home search for axis which are not referenced.
+        Perform home search for all axes which are not referenced.
         """
         for addr in self.addresses:
             state = self.get_error_and_state(addr=addr)
             if not state.is_referenced:
                 self.link.send(addr, "OR")
 
-    def get_error_and_state(self, addr):
+    def get_error_and_state(self, addr: int):
         """
         Query current motion controller errors and state.
         Querying the error and state may clear error flags.
 
-        :axis: Axis index.
+        :param addr: Address of the axis.
         :return: Current error and state, in a ErrorAndState instance.
         """
         res = self.link.query(addr, "TS")
@@ -320,7 +320,7 @@ class SMC100(Stage):
         result.state = State(int(res[4:], 16))
         return result
 
-    def enter_configuration_state(self, addr):
+    def enter_configuration_state(self, addr: int):
         """Enter configuration state."""
         self.link.send(addr, "PW1")
 
@@ -332,23 +332,26 @@ class SMC100(Stage):
         self.link.send(addr, "PW0")
 
     @property
-    def controller_address(self, addr):
+    def controller_address(self, addr: int):
         """
-        Controller's RS-485 address. int in [2, 31].
-        Changing the address is only possible when the controller is in
-        configuration state.
+        Get controller's RS-485 address. int in [2, 31].
         """
         return int(self.link.query(addr, "SA"))
 
     @controller_address.setter
     def controller_address(self, addr, value):
+        """
+        Set controller's RS-485 address. int in [2, 31].
+        Changing the address is only possible when the controller is in
+        configuration state.
+        """
         if value not in range(2, 32):
             raise ValueError("Invalid controller address")
         self.link.send(addr, f"SA{value}")
 
-    def move_relative(self, addr, offset):
+    def move_relative(self, addr: int, offset: float):
         """
-        Move relatively an axis from  a given offset
+        Moves relatively an axis from a given offset
 
         :param addr: addr of axis to move
         :param offset: offset value
@@ -357,9 +360,9 @@ class SMC100(Stage):
         self.is_disabled = False
         self.link.send(addr, f"PR{offset}")
 
-    def stop(self, addr=None):
+    def stop(self, addr: Optional[int] = None):
         """
-        Stop the motion on an axis. On all axis if addr not specitied.
+        Stops the motion on an axis. On all axis if addr not specified.
 
         :param addr: Address of the axis to stop. If None, stop all the controllers
         """
@@ -374,11 +377,12 @@ class SMC100(Stage):
         for addr in self.addresses if addr is None else [addr]:
             self.link.send(addr, "RS")
 
-    def set_position(self, addr, value, blocking=True):
+    def set_position(self, addr: int, value: float, blocking=True):
         """
-        set the position of a single axis
+        Sets the position of a single axis
 
         :param addr: address of the axis to set the position
+        :param value: stage position, in micrometers
         :param blocking: if True, blocking mode: wait for the position to be
             reached before exit.
         """
@@ -423,7 +427,7 @@ class SMC100(Stage):
     def enter_leave_disable_state(self, addr: Optional[int], enter: bool = True):
         """
         Permits for a specified axis to enter or leave the DISABLE state.
-        DISABLE state makes the motor not energizied and opens the control loop.
+        DISABLE state makes the motor not energized and opens the control loop.
 
         :param addr: address of the axis to operate. If None is passed, it applies to all controllers
         :param enter: True to enter, False to leave DISABLE state
