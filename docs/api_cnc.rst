@@ -1,0 +1,12 @@
+pystages.cncrouter
+============
+
+.. automodule:: pystages.cncrouter
+
+.. autoclass:: CNCRouter
+    :special-members: __init__
+    :members:
+
+.. autoclass:: CNCStatus
+    :members:
+    :undoc-members:
