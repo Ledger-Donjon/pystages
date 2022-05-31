@@ -47,7 +47,7 @@ class CNCRouter(Stage):
 
         :param dev: Serial device. For instance '/dev/ttyUSB0'.
         """
-        super().__init__()
+        super().__init__(num_axis=3)
         try:
             self.serial = serial.Serial(dev, 115200)
             self.timeout = 1

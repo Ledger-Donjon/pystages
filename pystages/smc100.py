@@ -233,8 +233,7 @@ class SMC100(Stage):
             the same serial device.
         :param addresses: An iterable of int controller addresses.
         """
-        super().__init__()
-
+        super().__init__(num_axis=len(addresses))
         if isinstance(dev, Link):
             self.link = dev
         elif isinstance(dev, SMC100):
@@ -249,11 +248,6 @@ class SMC100(Stage):
         # state at startup returns and clear error flags.
         for addr in self.addresses:
             self.link.query(addr, "TS")
-
-    @property
-    def num_axis(self):
-        """:return: Number of axis of this stage."""
-        return len(self.addresses)
 
     @property
     def position(self):

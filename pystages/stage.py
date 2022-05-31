@@ -21,7 +21,11 @@ from typing import Optional
 
 
 class Stage:
-    def __init__(self):
+    def __init__(self, num_axis=1):
+        """
+        :param num_axis: The number of axis of the stage, can be updated or set after initialisation of the object.
+        """
+        self.num_axis = num_axis
         self.wait_routine = None
 
     @property
