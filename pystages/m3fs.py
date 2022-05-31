@@ -32,19 +32,20 @@ class M3FS(Stage):
     correct VID/DID).
     """
 
-    def __init__(self, dev):
+    def __init__(self, dev, baudrate=250000):
         """
         Connect to the device. If the serial device cannot be opened, a
         ConnectionFailure exception is thrown. If the device version is not
         supported, a VersionNotSupported error is thrown.
 
         :param dev: Serial device. For instance 'COM0'.
+        :param baudrate: Serial baudrate.
         """
         super().__init__()
         self.resolution_um = 0.5
         try:
             self.serial = serial.Serial(
-                dev, baudrate=250000, stopbits=serial.STOPBITS_TWO
+                dev, baudrate=baudrate, stopbits=serial.STOPBITS_TWO
             )
         except serial.serialutil.SerialException as e:
             raise ConnectionFailure() from e
