@@ -351,7 +351,7 @@ class SMC100(Stage):
         """
         # Enable the motors
         self.is_disabled = False
-        self.link.send(addr, f"PR{offset}")
+        self.link.send(addr, f"PR{offset:.5f}")
 
     def stop(self, addr: Optional[int] = None):
         """
@@ -381,7 +381,7 @@ class SMC100(Stage):
         """
         # Enable the motors
         self.is_disabled = False
-        self.link.send(addr, f"PA{value}")
+        self.link.send(addr, f"PA{value:.5f}")
 
         if blocking:
             error_and_state = self.get_error_and_state(addr=addr)
