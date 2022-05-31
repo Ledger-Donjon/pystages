@@ -62,9 +62,9 @@ class CNCRouter(Stage):
         :return: True if the GRBL sends the correct prompt
         """
         self.serial.flush()
-        self.send("\030", eol='')
+        self.send("\030", eol="")
         time.sleep(0.05)
-        self.send('')
+        self.send("")
 
         responses = self.receive_lines()
         # Expected ATR is 'Grbl x.xx ['$' for help]' for first line.
@@ -90,7 +90,7 @@ class CNCRouter(Stage):
         :return: True if message [MSG:Caution: Unlock] has been returned
         """
         self.send("$X")
-        return '[MSG:Caution: Unlocked]' in self.receive_lines()
+        return "[MSG:Caution: Unlocked]" in self.receive_lines()
 
     def get_grbl_settings(self) -> dict:
         """
@@ -222,4 +222,3 @@ class CNCRouter(Stage):
         :return:
         """
         return self.send_receive("G92 X0 Y0 Z0")
-

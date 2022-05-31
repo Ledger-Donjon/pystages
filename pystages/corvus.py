@@ -36,7 +36,7 @@ class Corvus(Stage):
 
         :param dev: Serial device. For instance '/dev/ttyUSB0'.
         """
-        super().__init__(num_axis = 3)
+        super().__init__(num_axis=3)
         try:
             self.serial = serial.Serial(dev, 57600)
         except serial.serialutil.SerialException as e:
@@ -169,7 +169,6 @@ class Corvus(Stage):
         super(__class__, self.__class__).position.fset(self, value)
         self.send("3 setdim")
         self.send("{0} {1} {2} move".format(value.x, value.y, value.z))
-
 
     @property
     def velocity(self):

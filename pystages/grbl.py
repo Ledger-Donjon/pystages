@@ -97,6 +97,7 @@ class GRBLSetting(Enum):
     GRBL Setting are obtained by sending the '$$' command as a list of
     key-value pairs '$K=V' with K being a number.
     """
+
     STEP_PULSE = "$0"
     STEP_IDLE_DELAY = "$1"
     STEP_PORT_INVERT = "$2"
