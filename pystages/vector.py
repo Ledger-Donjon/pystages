@@ -149,7 +149,7 @@ class Vector:
                 return False
         return True
 
-    def __mul__(self, other: Union['Vector', int, float]):
+    def __mul__(self, other: Union["Vector", int, float]):
         """
         :return: Scalar multiplication between this vector and the other.
         :param other: A Vector instance of same dimension, or an integer or a float.
@@ -172,7 +172,9 @@ class Vector:
         if isinstance(other, (int, float)):
             return self * (1.0 / other)
         else:
-            raise TypeError(f"Incorrect type for second operand. int or float is expected.")
+            raise TypeError(
+                f"Incorrect type for second operand. int or float is expected."
+            )
 
 
 class TestVector(unittest.TestCase):

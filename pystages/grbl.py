@@ -27,6 +27,7 @@ class InvertMask(Flag):
     """
     Invert Mask flags values
     """
+
     INVERT_X = 1
     INVERT_Y = 1 << 1
     INVERT_Z = 1 << 2
@@ -36,6 +37,7 @@ class StatusReportMask(Flag):
     """
     Status report flags values
     """
+
     NOTHING = 0
     MACHINE_POSITION = 1
     WORK_POSITION = 1 << 1

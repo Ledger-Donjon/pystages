@@ -115,7 +115,7 @@ class Link:
         res = self.receive()
         if res[: len(query_string)] != query_string:
             raise ProtocolError(query_string, res)
-        return res[len(query_string):]
+        return res[len(query_string) :]
 
 
 class State(Enum):
