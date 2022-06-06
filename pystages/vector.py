@@ -163,8 +163,10 @@ class Vector:
         return self
 
     def __truediv__(self, other):
-        if isinstance(other, int) or isinstance(other, float):
+        if isinstance(other, (int, float)):
             return self * (1.0 / other)
+        else:
+            raise TypeError(f"Incorrect type for second operand. int or float is expected.")
 
 
 class TestVector(unittest.TestCase):
