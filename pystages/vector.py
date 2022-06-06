@@ -154,13 +154,18 @@ class Vector:
         :param other: A Vector instance of same dimension, or an integer or a float.
         """
         dim = len(self)
-        if isinstance(other, int) or isinstance(other, float):
-            return self * Vector(*([other] * dim))
+        if isinstance(other, (int, float)):
+            result = Vector(dim=dim)
+            for i in range(dim):
+                result[i] = self[i] * other
+            return result
+
+        result = Vector(dim=dim)
         if len(other) != dim:
             raise ValueError(f"Incorrect vector size")
         for i in range(dim):
-            self[i] *= other[i]
-        return self
+            result[i] = self[i] * other[i]
+        return result
 
     def __truediv__(self, other):
         if isinstance(other, (int, float)):
