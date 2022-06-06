@@ -83,7 +83,7 @@ class GRBLSetting(Enum):
         return type(self._description[0])
 
     @property
-    def default_value(self) -> float | bool | InvertMask | StatusReportMask | int:
+    def default_value(self) -> Union[float, bool, InvertMask, StatusReportMask, int]:
         """
         Gives the default value of the GRBL setting
         """
