@@ -163,5 +163,9 @@ class M3FS(Stage):
         val = round(value / self.resolution_um).to_bytes(4, "big", signed=True)
         self.command(8, hexlify(val).decode())
         # Now wait until motor is not moving anymore
-        while self.__get_closed_loop_status()[0] & 4:
+        while self.is_moving:
             pass
+
+    @property
+    def is_moving(self) -> bool:
+        return bool(self.__get_closed_loop_status()[0] & 4)

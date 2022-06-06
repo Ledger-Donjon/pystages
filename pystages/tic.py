@@ -241,3 +241,11 @@ class Tic(Stage):
     def target_position(self, value):
         self.exit_safe_start()
         self.set_target_position(value)
+
+    @property
+    def is_moving(self) -> bool:
+        """
+        Because there is no specific command to get the current moving state of the Tic, and
+        the positioning/homing is always blocking, this function returns False in all cases.
+        """
+        return False
