@@ -1,5 +1,5 @@
 pystages.cncrouter
-============
+==================
 
 .. automodule:: pystages.cncrouter
 
