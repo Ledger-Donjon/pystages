@@ -13,6 +13,10 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
+# Values and descriptions of commands and error codes has been taken from GRBL Github repository
+# https://github.com/grbl/grbl
+# and the instruction manual of the CNC 3018 PRO
+# https://drive.google.com/file/d/1yQH9gtO8lWbE-K0dff8g9zq_1xOB57x7
 #
 # Copyright 2018-2022 Ledger SAS, written by Michaël Mouchous
 import time
