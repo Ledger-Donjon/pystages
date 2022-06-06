@@ -18,9 +18,14 @@
 
 from .vector import Vector
 from typing import Optional
+from abc import ABC, abstractmethod
 
 
-class Stage:
+class Stage(ABC):
+    """
+    Stage is an abstract class from which all stage implementation must inherit to get a consistent behavior and value
+    checking for getting and setting position, setting software limits...
+    """
     def __init__(self, num_axis=1):
         """
         :param num_axis: The number of axis of the stage, can be updated or set after initialisation of the object.
@@ -35,6 +40,7 @@ class Stage:
         self._maximums: Optional[Vector] = None
 
     @property
+    @abstractmethod
     def position(self) -> Vector:
         """
         Current stage position. Vector.
@@ -42,7 +48,7 @@ class Stage:
         :getter: Query and return stage position.
         :setter: Move the stage.
         """
-        raise RuntimeError("This function should not be called")
+        ...
 
     @position.setter
     def position(self, value: Vector):
@@ -54,9 +60,10 @@ class Stage:
         self.check_range(value)
 
     @property
+    @abstractmethod
     def is_moving(self) -> bool:
         """Queries the status of the stage to determine if it is moving"""
-        raise RuntimeError("This function should not be called")
+        ...
 
     def wait_move_finished(self):
         """
