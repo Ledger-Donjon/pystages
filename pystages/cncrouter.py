@@ -85,7 +85,7 @@ class CNCRouter(Stage):
 
     def unlock(self) -> bool:
         """
-        Unlock the motor. It may happend when the stage has gone further its limits,
+        Unlock the motor. It may happen when the stage has gone further its limits,
         and raised an alarm, or has been disabled when going in sleep mode ('$SLP')
         :return: True if message [MSG:Caution: Unlock] has been returned
         """

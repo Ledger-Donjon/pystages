@@ -18,6 +18,7 @@
 
 
 import unittest
+from typing import Union
 
 
 class Vector:
@@ -148,7 +149,7 @@ class Vector:
                 return False
         return True
 
-    def __mul__(self, other):
+    def __mul__(self, other: Union['Vector', int, float]):
         """
         :return: Scalar multiplication between this vector and the other.
         :param other: A Vector instance of same dimension, or an integer or a float.
@@ -222,7 +223,7 @@ class TestVector(unittest.TestCase):
 
         # Test number of args checking
         with self.assertRaises(ValueError):
-            v = Vector(1, 2, 3, 4, 5, dim=4)
+            _ = Vector(1, 2, 3, 4, 5, dim=4)
 
     def test_xyzw(self):
         v = Vector(1, 2, 3, 4)

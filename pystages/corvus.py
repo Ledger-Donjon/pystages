@@ -50,7 +50,7 @@ class Corvus(Stage):
         # Set unit to micrometers, for all axis
         unit = 1
         self.send("{0} -1 setunit".format(unit))
-        # Verify it has been took into account (this can be dangerous
+        # Verify it has been taken into account (this can be dangerous
         # otherwise)
         res = self.send_receive("-1 getunit").split()
         for x in res:
@@ -140,7 +140,7 @@ class Corvus(Stage):
         return bool(int(self.send_receive("st")) & 1)
 
     def set_origin(self):
-        """Set current stage coordinates as the new coordinates origin."""
+        """Set current stage's coordinates as the new origin."""
         self.send("0 0 0 setpos")
 
     def enable_joystick(self):

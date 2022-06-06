@@ -23,16 +23,18 @@ from abc import ABC, abstractmethod
 
 class Stage(ABC):
     """
-    Stage is an abstract class from which all stage implementation must inherit to get a consistent behavior and value
-    checking for getting and setting position, setting software limits...
+    Stage is an abstract class from which all stage implementation must inherit to get a consistent
+    behavior and value checking for getting and setting position, setting software limits...
     """
+
     def __init__(self, num_axis=1):
         """
-        :param num_axis: The number of axis of the stage, can be updated or set after initialisation of the object.
+        :param num_axis: The number of axis of the stage, can be updated or set after initialisation
+        of the object.
         """
         self.num_axis = num_axis
         # The wait routine is a function that is called when the wait_move_finished is looping.
-        # It can be used to add some temporization and/or UI updates.
+        # It can be used to add some temporisation and/or UI updates.
         self.wait_routine = None
 
         # Minimum and maximum software limits
@@ -55,7 +57,8 @@ class Stage(ABC):
         """
         Set stage to a new destination.
         """
-        # Checks dimension according to number of axis, and range according to minimums/maximums (raises an exception if incorrect)
+        # Checks dimension according to number of axis, and range according to minimums/maximums
+        # (raises an exception if incorrect)
         self.check_dimension(value)
         self.check_range(value)
 
@@ -68,8 +71,6 @@ class Stage(ABC):
     def wait_move_finished(self):
         """
         Wait until all axis are ready.
-
-        :param wait_routine: An optional routine to be executed between each query of move.
         """
         while self.is_moving:
             if self.wait_routine is not None:
@@ -89,7 +90,8 @@ class Stage(ABC):
 
     def check_dimension(self, value: Vector):
         """
-        Check if the given value's dimension is consistent according to the number of axes of the Stage.
+        Check if the given value's dimension is consistent according to the number of axes of the
+        Stage.
         :param value: The vector to check
         :raises ValueError: If dimension is inconsistent with the number of axis of the Stage.
         """
@@ -121,11 +123,13 @@ class Stage(ABC):
         for i in range(len(value)):
             if mins[i] is not None and value[i] < mins[i]:
                 raise ValueError(
-                    f"Invalid value for dimension {i}: {value[i]} is smaller that minimum {mins[i]}."
+                    f"Invalid value for dimension {i}: {value[i]} "
+                    f"is smaller that minimum {mins[i]}."
                 )
             if maxs[i] is not None and value[i] > maxs[i]:
                 raise ValueError(
-                    f"Invalid value for dimension {i}: {value[i]} is greater that maximum {maxs[i]}."
+                    f"Invalid value for dimension {i}: {value[i]} "
+                    f"is greater that maximum {maxs[i]}."
                 )
 
     @property

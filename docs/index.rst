@@ -16,7 +16,8 @@ features are implemented):
   (:class:`pystages.smc100.SMC100`)
 - SMC Corvus Stepper Motor Controller (:class:`pystages.corvus.Corvus`)
 - New Scale M3-FS Focus Module (:class:`pystages.m3fs.M3FS`)
-- CNC Router, controlled with GRBL/GCode instructions (CNC 3018-PRO) (:class:`pystages.cncrouter.CNCRouter`)
+- CNC Router, controlled with GRBL/GCode instructions (CNC 3018-PRO)
+(:class:`pystages.cncrouter.CNCRouter`)
 
 The library also provides helper classes for basic vector manipulation
 (:class:`pystages.Vector`) and autofocus calculation

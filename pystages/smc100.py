@@ -115,7 +115,7 @@ class Link:
         res = self.receive()
         if res[: len(query_string)] != query_string:
             raise ProtocolError(query_string, res)
-        return res[len(query_string) :]
+        return res[len(query_string):]
 
 
 class State(Enum):
@@ -422,7 +422,8 @@ class SMC100(Stage):
         Permits for a specified axis to enter or leave the DISABLE state.
         DISABLE state makes the motor not energized and opens the control loop.
 
-        :param addr: address of the axis to operate. If None is passed, it applies to all controllers
+        :param addr: address of the axis to operate.
+        If None is passed, it applies to all controllers
         :param enter: True to enter, False to leave DISABLE state
         """
         # MM0 changes the controller’s state from READY to DISABLE (enter)

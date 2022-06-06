@@ -26,7 +26,7 @@ Position attribute details
 
 The `position` property of stage instances return a detached
 :class:`pystages.Vector`. Modifying the returned vector does not move the stage,
-so the following code does not work as intented:
+so the following code does not work as intended:
 
 .. code-block:: python
 
