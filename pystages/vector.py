@@ -18,6 +18,7 @@
 
 
 import unittest
+from typing import Union
 
 
 class Vector:
@@ -148,6 +149,33 @@ class Vector:
                 return False
         return True
 
+    def __mul__(self, other: Union["Vector", int, float]):
+        """
+        :return: Scalar multiplication between this vector and the other.
+        :param other: A Vector instance of same dimension, or an integer or a float.
+        """
+        dim = len(self)
+        if isinstance(other, (int, float)):
+            result = Vector(dim=dim)
+            for i in range(dim):
+                result[i] = self[i] * other
+            return result
+
+        result = Vector(dim=dim)
+        if len(other) != dim:
+            raise ValueError(f"Incorrect vector size")
+        for i in range(dim):
+            result[i] = self[i] * other[i]
+        return result
+
+    def __truediv__(self, other):
+        if isinstance(other, (int, float)):
+            return self * (1.0 / other)
+        else:
+            raise TypeError(
+                f"Incorrect type for second operand. int or float is expected."
+            )
+
 
 class TestVector(unittest.TestCase):
     def test_init(self):
@@ -197,7 +225,7 @@ class TestVector(unittest.TestCase):
 
         # Test number of args checking
         with self.assertRaises(ValueError):
-            v = Vector(1, 2, 3, 4, 5, dim=4)
+            _ = Vector(1, 2, 3, 4, 5, dim=4)
 
     def test_xyzw(self):
         v = Vector(1, 2, 3, 4)
@@ -266,6 +294,15 @@ class TestVector(unittest.TestCase):
         self.assertNotEqual(Vector(1, 2, 3), Vector(1, 4, 3))
         self.assertNotEqual(Vector(1, 2, 3), Vector(1, 2, 4))
         self.assertNotEqual(Vector(1, 2, 3), Vector(1, 2))
+
+    def test_mult(self):
+        self.assertEqual(Vector() * 10, ())
+        self.assertEqual(Vector(1) * 10, Vector(10))
+        self.assertEqual(Vector(1, 2, 3) * 10, Vector(10, 20, 30))
+        self.assertEqual(
+            Vector(1.0, 2.0, 3.0) / 10,
+            Vector(1.0 * (1.0 / 10), 2.0 * (1.0 / 10), 3.0 * (1.0 / 10)),
+        )
 
 
 if __name__ == "__main__":

@@ -18,11 +18,11 @@
 # -- Project information -----------------------------------------------------
 
 project = "pystages"
-copyright = "2020, Olivier Hériveaux, Manuel San Pedro"
-author = "Olivier Hériveaux, Manuel San Pedro"
+copyright = "2022, Olivier Hériveaux, Manuel San Pedro, Michaël Mouchous"
+author = "Olivier Hériveaux, Manuel San Pedro, Michaël Mouchous"
 
 # The full version, including alpha/beta/rc tags
-release = "1.0"
+release = "1.1"
 
 
 # -- General configuration ---------------------------------------------------

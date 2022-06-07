@@ -9,6 +9,7 @@ Submodules
     api_m3fs.rst
     api_smc100.rst
     api_tic.rst
+    api_cnc.rst
 
 Classes
 -------

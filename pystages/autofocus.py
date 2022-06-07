@@ -16,14 +16,13 @@
 #
 # Copyright 2018-2020 Ledger SAS, written by Olivier Hériveaux
 
-
 import numpy as np
 import unittest
 
 
 class Autofocus:
     """
-    Utility class to add autofocus support for scanning softwares. Given a set
+    Utility class to add autofocus support for scanning software. Given a set
     of focused coordinates, this class can calculate the correct Z-depth for
     other points.
     """
@@ -63,14 +62,6 @@ class Autofocus:
             return self.__focus_3(x, y)
         else:
             raise RuntimeError("Not enough points registered for autofocus")
-
-    def __normalized_xy(v):
-        """
-        :param v: A (x, y) vector.
-        :return: v normalized.
-        """
-        length = math.sqtr((v[0] ** 2) + (v[1] ** 2))
-        return (v[0] / length, v[1] / length)
 
     def __focus_3(self, x, y):
         """
