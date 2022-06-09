@@ -45,29 +45,35 @@ class CNCRouter(Stage):
     Class to command CNC routers.
     """
 
-    def __init__(self, dev: str):
+    def __init__(self, dev: str, reset_wait_time=2.0):
         """
         Open serial device to connect to the CNC routers. Raise a
         ConnectionFailure exception if the serial device could not be open.
 
         :param dev: Serial device. For instance '/dev/ttyUSB0'.
+        :param reset_wait_time: Depending on the state of the stage, it can take some time for
+        GRBL to reset. This parameter makes the wait time to be tuned, by giving a time in seconds.
         """
         super().__init__(num_axis=3)
+        self.reset_wait_time = reset_wait_time
         try:
-            self.serial = serial.Serial(dev, 115200)
-            self.timeout = 1
+            self.serial = serial.Serial(dev, 115200, timeout=1)
         except serial.serialutil.SerialException as e:
             raise ConnectionFailure() from e
         self.reset_grbl()
 
-    def reset_grbl(self) -> bool:
+    def reset_grbl(self, wait_time: Optional[float] = None) -> bool:
         """
         Sends a CTRL+X control to reset the GRBL
         :return: True if the GRBL sends the correct prompt
+        :param wait_time: Depending on the state of the stage, it can take some time for GRBL to
+        reset. This parameter makes the wait time to be tuned, by giving a time in seconds.
         """
+        if wait_time is None:
+            wait_time = self.reset_wait_time
         self.serial.flush()
         self.send("\030", eol="")
-        time.sleep(0.05)
+        time.sleep(wait_time)
         self.send("")
 
         responses = self.receive_lines()
@@ -144,7 +150,7 @@ class CNCRouter(Stage):
 
         return cncstatus, others
 
-    def send(self, command: str, eol=None):
+    def send(self, command: str, eol: Optional[str] = None):
         """
         Send a command.
 
@@ -158,8 +164,9 @@ class CNCRouter(Stage):
     def receive_lines(self, until: str = "ok") -> List[str]:
         """
         Receive multiple lines until getting as specific value
-        :param until:
-        :return:
+        :param until: The expected response indicating the end of received lines.
+        :return: The list of all received lines. Note that the expected line is not included in the
+        list.
         """
         lines = []
         while (l := self.serial.readline().strip().decode()) != until:
