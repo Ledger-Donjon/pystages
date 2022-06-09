@@ -19,10 +19,10 @@
 # https://drive.google.com/file/d/1yQH9gtO8lWbE-K0dff8g9zq_1xOB57x7
 #
 # Copyright 2018-2022 Ledger SAS, written by Michaël Mouchous
-import time
-from typing import Optional
 
 import serial
+import time
+from typing import Optional, Tuple, List
 from .exceptions import ConnectionFailure
 from .vector import Vector
 from enum import Enum
@@ -114,7 +114,7 @@ class CNCRouter(Stage):
                 settings[setting] = setting.type(int(value))
         return settings
 
-    def get_current_status(self) -> Optional[tuple[CNCStatus, dict]]:
+    def get_current_status(self) -> Optional[Tuple[CNCStatus, dict]]:
         """
         Sending '?' character permits to get the status of the CNC
         router
@@ -155,7 +155,7 @@ class CNCRouter(Stage):
             eol = "\n"
         self.serial.write((command + eol).encode())
 
-    def receive_lines(self, until: str = "ok") -> list[str]:
+    def receive_lines(self, until: str = "ok") -> List[str]:
         """
         Receive multiple lines until getting as specific value
         :param until:

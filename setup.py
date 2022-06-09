@@ -7,5 +7,5 @@ setup(
     version="1.1",
     install_requires=["pyserial", "pyusb", "numpy"],
     packages=find_packages(),
-    python_requires=">=3.7",
+    python_requires=">=3.8",
 )
