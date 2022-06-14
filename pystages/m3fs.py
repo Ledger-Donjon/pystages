@@ -153,14 +153,14 @@ class M3FS(Stage):
         :setter: Move stage. Wait until position is reached.
         """
         motor_status, position, error = self.__get_closed_loop_status()
-        return position * self.resolution_um
+        return Vector(position * self.resolution_um)
 
     @position.setter
     def position(self, value):
         # To check dimension and range of the given value
         super(__class__, self.__class__).position.fset(self, value)
 
-        val = round(value / self.resolution_um).to_bytes(4, "big", signed=True)
+        val = round(value.x / self.resolution_um).to_bytes(4, "big", signed=True)
         self.command(8, hexlify(val).decode())
         # Now wait until motor is not moving anymore
         while self.is_moving:
