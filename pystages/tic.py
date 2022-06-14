@@ -22,6 +22,7 @@ import usb.util
 from enum import Enum
 from time import sleep
 from .stage import Stage
+from .vector import Vector
 
 
 class TicVariable(Enum):
@@ -225,17 +226,17 @@ class Tic(Stage):
         return self.get_variable(TicVariable.CURRENT_POSITION)
 
     @position.setter
-    def position(self, value):
+    def position(self, value: Vector):
         # To check dimension and range of the given value
         super(__class__, self.__class__).position.fset(self, value)
-        self.target_position = value
-        while self.position != value:
+        self.target_position = value.x
+        while self.position != value.x:
             sleep(self.poll_interval)
             self.exit_safe_start()
 
     @property
-    def target_position(self):
-        return self.get_variable(TicVariable.TARGET_POSITION)
+    def target_position(self) -> Vector:
+        return Vector(self.get_variable(TicVariable.TARGET_POSITION))
 
     @target_position.setter
     def target_position(self, value):
