@@ -14,3 +14,11 @@ pystages.cncrouter
 .. autoclass:: GRBLSetting
     :members:
     :undoc-members:
+
+.. autoclass:: InvertMask
+    :members:
+    :undoc-members:
+
+.. autoclass:: StatusReportMask
+    :members:
+    :undoc-members:
