@@ -50,9 +50,9 @@ class CNCRouter(Stage):
         Open serial device to connect to the CNC routers. Raise a
         ConnectionFailure exception if the serial device could not be open.
 
-        :param dev: Serial device. For instance '/dev/ttyUSB0'.
+        :param dev: Serial device. For instance `'/dev/ttyUSB0'`.
         :param reset_wait_time: Depending on the state of the stage, it can take some time for
-        GRBL to reset. This parameter makes the wait time to be tuned, by giving a time in seconds.
+         GRBL to reset. This parameter makes the wait time to be tuned, by giving a time in seconds.
         """
         super().__init__(num_axis=3)
         self.reset_wait_time = reset_wait_time
@@ -65,9 +65,10 @@ class CNCRouter(Stage):
     def reset_grbl(self, wait_time: Optional[float] = None) -> bool:
         """
         Sends a CTRL+X control to reset the GRBL
+
         :return: True if the GRBL sends the correct prompt
         :param wait_time: Depending on the state of the stage, it can take some time for GRBL to
-        reset. This parameter makes the wait time to be tuned, by giving a time in seconds.
+         reset. This parameter makes the wait time to be tuned, by giving a time in seconds.
         """
         if wait_time is None:
             wait_time = self.reset_wait_time
@@ -88,7 +89,7 @@ class CNCRouter(Stage):
 
     def sleep(self):
         """
-        Sends a $SLP command. The stage responds a message '[MSG:Sleeping]' after 'ok'.
+        Sends a `$SLP` command. The stage responds a message `[MSG:Sleeping]` after `ok`.
         """
         self.send_receive("$SLP")
         return self.receive()
@@ -96,15 +97,17 @@ class CNCRouter(Stage):
     def unlock(self) -> bool:
         """
         Unlock the motor. It may happen when the stage has gone further its limits,
-        and raised an alarm, or has been disabled when going in sleep mode ('$SLP')
-        :return: True if message [MSG:Caution: Unlock] has been returned
+        and raised an alarm, or has been disabled when going in sleep mode (`$SLP`)
+
+        :return: `True` if message `[MSG:Caution: Unlock]` has been returned
         """
         self.send("$X")
         return "[MSG:Caution: Unlocked]" in self.receive_lines()
 
     def get_grbl_settings(self) -> dict:
         """
-        Obtains and parse the list of GRBLSettings with the '$$' command.
+        Obtains and parse the list of GRBLSettings with the `$$` command.
+
         :return: A dictionary containing the GRBLSetting as key and its corresponding value
         """
         self.send("$$")
@@ -124,8 +127,9 @@ class CNCRouter(Stage):
         """
         Sending '?' character permits to get the status of the CNC
         router
-        :return: A tuple containing the status and a dictionary of all other
-        parameters in the output of the command.
+
+        :return: A tuple containing the status and a dictionary of all other parameters in the
+         output of the command.
         """
         self.send("?", eol="")
         status = self.receive()
@@ -163,10 +167,11 @@ class CNCRouter(Stage):
 
     def receive_lines(self, until: str = "ok") -> List[str]:
         """
-        Receive multiple lines until getting as specific value
+        Receive multiple lines until getting as specific value.
+
         :param until: The expected response indicating the end of received lines.
         :return: The list of all received lines. Note that the expected line is not included in the
-        list.
+         list.
         """
         lines = []
         while (l := self.serial.readline().strip().decode()) != until:
