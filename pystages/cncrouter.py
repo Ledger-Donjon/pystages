@@ -85,6 +85,11 @@ class CNCRouter(Stage):
         # Unlock if necessary
         if "[MSG:'$H'|'$X' to unlock]" in responses:
             ok = self.unlock()
+        # Force status report to send Machine Position and Work Position
+        self.set_grbl_setting(
+            GRBLSetting.STATUS_REPORT_MASK,
+            StatusReportMask.MACHINE_POSITION | StatusReportMask.WORK_POSITION,
+        )
         return ok
 
     def sleep(self):
