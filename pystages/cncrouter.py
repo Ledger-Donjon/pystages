@@ -244,7 +244,10 @@ class CNCRouter(Stage):
         :setter: Move the stage.
         """
         res = self.get_current_status()[1]["MPos"]
-        return Vector(*tuple(float(x) for x in res))
+        mpos = Vector(*tuple(float(x) for x in res))
+        res = self.get_current_status()[1]["WCO"]
+        wco = Vector(*tuple(float(x) for x in res))
+        return mpos - wco
 
     @position.setter
     def position(self, value: Vector):
