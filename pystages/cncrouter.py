@@ -22,11 +22,11 @@
 
 import serial
 import time
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Union
 from .exceptions import ConnectionFailure
 from .vector import Vector
 from enum import Enum
-from .grbl import GRBLSetting
+from .grbl import GRBLSetting, InvertMask, StatusReportMask
 from .stage import Stage
 
 
@@ -104,6 +104,31 @@ class CNCRouter(Stage):
         self.send("$X")
         return "[MSG:Caution: Unlocked]" in self.receive_lines()
 
+    def get_grbl_setting(
+        self, setting: GRBLSetting
+    ) -> Union[float, bool, InvertMask, StatusReportMask, int]:
+        return self.get_grbl_settings()[setting]
+
+    def set_grbl_setting(
+        self,
+        setting: GRBLSetting,
+        value: Union[float, bool, InvertMask, StatusReportMask, int],
+    ):
+        """
+        Set the GRBL setting of the Router with given value. The value type must correspond to
+        type defined in :py:class:`GRBLSetting`.
+        """
+        if setting.type != type(value):
+            ValueError(f"The setting {setting} expects a value of type {setting.type}.")
+        if isinstance(value, (InvertMask, StatusReportMask)):
+            # Get the int value of the flag
+            value = value.value
+        elif isinstance(value, bool):
+            # Get the int value of the boolean (1 if true, 0 if false)
+            value = 1 if value else 0
+        # We do nothing for int and floats.
+        return self.send_receive(f"${setting.value}={value}")
+
     def get_grbl_settings(self) -> dict:
         """
         Obtains and parse the list of GRBLSettings with the `$$` command.
@@ -120,6 +145,8 @@ class CNCRouter(Stage):
                 value = float(value)
                 settings[setting] = value
             else:
+                # For (bool, InvertMask, StatusReportMask, int) types, str must be changed to int
+                # first.
                 settings[setting] = setting.type(int(value))
         return settings
 
