@@ -116,11 +116,10 @@ class TicDirection(Enum):
 
 class Tic(Stage):
     """
-    Very basic driver class for Polulu Tic Stepper Motor controller, connected
-    in USB.
+    Very basic driver class for Polulu Tic Stepper Motor controller, connected in USB.
 
     :ivar poll_interval: Interval between successive state polling for some
-        long motor operations.
+     long motor operations.
     """
 
     def __init__(self):

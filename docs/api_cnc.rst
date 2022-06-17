@@ -10,3 +10,7 @@ pystages.cncrouter
 .. autoclass:: CNCStatus
     :members:
     :undoc-members:
+
+.. autoclass:: GRBLSetting
+    :members:
+    :undoc-members:
