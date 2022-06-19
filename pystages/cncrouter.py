@@ -66,7 +66,7 @@ class CNCRouter(Stage):
         """
         Sends a CTRL+X control to reset the GRBL
 
-        :return: True if the GRBL sends the correct prompt
+        :return: True if the GRBL sent the correct prompt at the end of the reset
         :param wait_time: Depending on the state of the stage, it can take some time for GRBL to
          reset. This parameter makes the wait time to be tuned, by giving a time in seconds.
         """
@@ -92,9 +92,11 @@ class CNCRouter(Stage):
         )
         return ok
 
-    def sleep(self):
+    def sleep(self) -> str:
         """
         Sends a `$SLP` command. The stage responds a message `[MSG:Sleeping]` after `ok`.
+
+        :return: The response of the CNC ('ok' if command has been submitted correctly).
         """
         self.send_receive("$SLP")
         return self.receive()
@@ -263,7 +265,12 @@ class CNCRouter(Stage):
 
     @property
     def is_moving(self) -> bool:
-        """Queries the current status of the CNC in order to determine if the CNC is moving"""
+        """
+        Queries the current status of the CNC in order to determine if the CNC is moving
+
+        :return: True if the CNC reports that a cycle is running (Run) or
+         if it is in a middle of a homing cycle.
+        """
         status = self.get_current_status()[0]
         return status in [CNCStatus.RUN, CNCStatus.HOME]
 
