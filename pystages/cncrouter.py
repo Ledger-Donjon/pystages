@@ -274,9 +274,10 @@ class CNCRouter(Stage):
         status = self.get_current_status()[0]
         return status in [CNCStatus.RUN, CNCStatus.HOME]
 
-    def set_origin(self):
+    def set_origin(self) -> str:
         """
         Set current position as origin
-        :return:
+
+        :return: The response of the CNC ('ok' if command has been submitted correctly).
         """
         return self.send_receive("G92 X0 Y0 Z0")
