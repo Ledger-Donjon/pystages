@@ -134,7 +134,7 @@ class CNCRouter(Stage):
             # Get the int value of the boolean (1 if true, 0 if false)
             value = 1 if value else 0
         # We do nothing for int and floats.
-        return self.send_receive(f"${setting.value}={value}")
+        return self.send_receive(f"{setting.value}={value}")
 
     def get_grbl_settings(self) -> dict:
         """
