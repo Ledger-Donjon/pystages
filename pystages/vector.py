@@ -33,7 +33,7 @@ class Vector:
         """
         if dim is not None:
             if len(args) > dim:
-                raise ValueError("Two many initial values for this dimension.")
+                raise ValueError("Too many initial values for this dimension.")
             self.data = list(args)
             while len(self.data) < dim:
                 self.data.append(0)
