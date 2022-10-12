@@ -137,7 +137,7 @@ class Tic(Stage):
         """
         self.dev.ctrl_transfer(0x40, command.value, 0, 0, 0)
 
-    def write_7(self, command: TicCommand, data):
+    def write_7(self, command: TicCommand, data: int):
         """
         Write 7 bits.
 
@@ -146,7 +146,7 @@ class Tic(Stage):
         """
         self.dev.ctrl_transfer(0x40, command.value, data, 0, 0)
 
-    def write_32(self, command: TicCommand, data):
+    def write_32(self, command: TicCommand, data: int):
         """
         Write 32 bits.
 
@@ -155,7 +155,7 @@ class Tic(Stage):
         """
         self.dev.ctrl_transfer(0x40, command.value, data & 0xFFFF, data >> 16, 0)
 
-    def block_read(self, command: TicCommand, offset, length):
+    def block_read(self, command: TicCommand, offset, length) -> bytes:
         """
         Read data from the device.
 
@@ -200,13 +200,13 @@ class Tic(Stage):
                 self.exit_safe_start()
                 sleep(self.poll_interval)
 
-    def set_target_position(self, pos):
+    def set_target_position(self, pos: int):
         self.write_32(TicCommand.SET_TARGET_POSITION, pos)
 
-    def set_target_velocity(self, velocity):
+    def set_target_velocity(self, velocity: int):
         self.write_32(TicCommand.SET_TARGET_VELOCITY, velocity)
 
-    def get_variable(self, variable: TicVariable):
+    def get_variable(self, variable: TicVariable) -> int:
         offset, length, signed = variable.value
         return int.from_bytes(
             self.block_read(TicCommand.GET_VARIABLE, offset, length),
@@ -215,30 +215,30 @@ class Tic(Stage):
         )
 
     @property
-    def position(self):
+    def position(self) -> Vector:
         """
         Motor position, in steps.
 
         :getter: Returns current target position.
         :setter: Set target position and wait until position is reached.
         """
-        return self.get_variable(TicVariable.CURRENT_POSITION)
+        return Vector(self.get_variable(TicVariable.CURRENT_POSITION))
 
     @position.setter
     def position(self, value: Vector):
         # To check dimension and range of the given value
         super(__class__, self.__class__).position.fset(self, value)
         self.target_position = value.x
-        while self.position != value.x:
+        while self.position.x != value.x:
             sleep(self.poll_interval)
             self.exit_safe_start()
 
     @property
-    def target_position(self) -> Vector:
-        return Vector(self.get_variable(TicVariable.TARGET_POSITION))
+    def target_position(self) -> int:
+        return self.get_variable(TicVariable.TARGET_POSITION)
 
     @target_position.setter
-    def target_position(self, value):
+    def target_position(self, value: int):
         self.exit_safe_start()
         self.set_target_position(value)
 
