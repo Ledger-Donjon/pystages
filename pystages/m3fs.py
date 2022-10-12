@@ -21,6 +21,7 @@ import serial
 from binascii import hexlify
 from .exceptions import ConnectionFailure, ProtocolError, VersionNotSupported
 from .stage import Stage
+from .vector import Vector
 
 
 class M3FS(Stage):
@@ -145,7 +146,7 @@ class M3FS(Stage):
         return motor_status, position, error
 
     @property
-    def position(self):
+    def position(self) -> Vector:
         """
         Stage position, in micrometers.
 
@@ -156,7 +157,7 @@ class M3FS(Stage):
         return Vector(position * self.resolution_um)
 
     @position.setter
-    def position(self, value):
+    def position(self, value: Vector):
         # To check dimension and range of the given value
         super(__class__, self.__class__).position.fset(self, value)
 
