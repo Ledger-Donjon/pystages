@@ -167,11 +167,25 @@ class CNCRouter(Stage):
         """
         self.send("?", eol="")
         status = self.receive()
+
+        # Sometimes, the CNC returns 'ok' and the actual response is following.
+        while status == "ok":
+            status = self.receive()
+
+        # In the case there has been a communication error
+        if status is None:
+            return None
+
         # The output
         # '<Idle|MPos:1.000,3.000,4.000|FS:0,0|WCO:0.000,0.000,0.000>'
-        # Remove the chevrons
-        status = status[1:-1]
-        elements = status.split("|")
+
+        # Discard any unwanted format
+        if not (status.startswith("<") and status.endswith(">")):
+            print(f"Response to '?' is unexpected: {status}")
+            return None
+
+        # Remove the chevrons and split all pipes.
+        elements = status[1:-1].split("|")
 
         # First element is the CNC status
         cncstatus = CNCStatus(elements[0])
@@ -245,11 +259,16 @@ class CNCRouter(Stage):
         :getter: Query and return stage position.
         :setter: Move the stage.
         """
-        status = {}
-        while "WCO" not in status:
-            status = self.get_current_status()[1]
-        mpos = Vector(*tuple(float(x) for x in status["MPos"]))
-        wco = Vector(*tuple(float(x) for x in status["WCO"]))
+        extra_dict = {}
+        # We loop until we get a current status providing 'WCO' which stores the
+        # origin.
+        while "WCO" not in extra_dict.keys():
+            current_status = self.get_current_status()
+            extra_dict = current_status[1] if current_status is not None else {}
+
+        mpos = Vector(*tuple(float(x) for x in extra_dict["MPos"]))
+        wco = Vector(*tuple(float(x) for x in extra_dict["WCO"]))
+
         return mpos - wco
 
     @position.setter
@@ -272,8 +291,9 @@ class CNCRouter(Stage):
         :return: True if the CNC reports that a cycle is running (Run) or
          if it is in a middle of a homing cycle.
         """
-        status = self.get_current_status()[0]
-        return status in [CNCStatus.RUN, CNCStatus.HOME]
+        while (status := self.get_current_status()) is None:
+            pass
+        return status[0] in [CNCStatus.RUN, CNCStatus.HOME]
 
     def set_origin(self) -> str:
         """
