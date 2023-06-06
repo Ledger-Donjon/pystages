@@ -19,7 +19,7 @@
 from .vector import Vector
 from typing import Optional
 from abc import ABC, abstractmethod
-
+from serial.tools.list_ports import comports
 
 class Stage(ABC):
     """
@@ -40,6 +40,22 @@ class Stage(ABC):
         # Minimum and maximum software limits
         self._minimums: Optional[Vector] = None
         self._maximums: Optional[Vector] = None
+
+    def find_device(self, pid = None, vid = None) -> str:
+        # Try to find automatically the device according to given informations in parameter
+        possible_ports = []
+        for port in comports():
+            if (port.pid, port.vid) == (pid, vid):
+                possible_ports.append(port)
+        if len(possible_ports) > 1:
+            raise RuntimeError(
+                "Multiple CNCRouter devices found! I don't know which one to use."
+            )
+        elif len(possible_ports) == 1:
+            dev = possible_ports[0].device
+        else:
+            raise RuntimeError("No CNCRouter device found")
+        return dev
 
     @property
     @abstractmethod

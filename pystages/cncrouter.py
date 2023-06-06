@@ -45,7 +45,7 @@ class CNCRouter(Stage):
     Class to command CNC routers.
     """
 
-    def __init__(self, dev: str, reset_wait_time=2.0):
+    def __init__(self, dev: str = None, reset_wait_time=2.0):
         """
         Open serial device to connect to the CNC routers. Raise a
         ConnectionFailure exception if the serial device could not be open.
@@ -54,9 +54,11 @@ class CNCRouter(Stage):
         :param reset_wait_time: Depending on the state of the stage, it can take some time for
          GRBL to reset. This parameter makes the wait time to be tuned, by giving a time in seconds.
         """
+        
         super().__init__(num_axis=3)
         self.reset_wait_time = reset_wait_time
         try:
+            dev = dev or self.find_device(pid = 0x7523, vid = 0x1A86)
             self.serial = serial.Serial(dev, 115200, timeout=1)
         except serial.serialutil.SerialException as e:
             raise ConnectionFailure() from e
