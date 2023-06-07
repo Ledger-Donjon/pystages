@@ -21,6 +21,7 @@ from typing import Optional
 from abc import ABC, abstractmethod
 from serial.tools.list_ports import comports
 
+
 class Stage(ABC):
     """
     Stage is an abstract class from which all stage implementation must inherit to get a consistent
@@ -41,7 +42,7 @@ class Stage(ABC):
         self._minimums: Optional[Vector] = None
         self._maximums: Optional[Vector] = None
 
-    def find_device(self, pid = None, vid = None) -> str:
+    def find_device(self, pid=None, vid=None) -> str:
         # Try to find automatically the device according to given informations in parameter
         possible_ports = []
         for port in comports():
