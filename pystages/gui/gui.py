@@ -4,10 +4,10 @@ from ..cncrouter import CNCRouter
 from ..corvus import Corvus
 from ..smc100 import SMC100
 from ..stage import Stage
-from enum import StrEnum
+from enum import Enum
 
 
-class StageType(StrEnum):
+class StageType(str, Enum):
     CNC = "CNC"
     Corvus = "Corvus"
     SMC = "SMC100"
