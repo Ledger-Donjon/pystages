@@ -168,3 +168,9 @@ class Stage(ABC):
         if value is not None:
             self.check_dimension(value)
         self._maximums = value
+
+    @property
+    @abstractmethod
+    def home(self):
+        """Triggers a non-blocking homing command."""
+        ...

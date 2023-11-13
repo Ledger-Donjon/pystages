@@ -92,6 +92,9 @@ class StageWindow(QWidget):
         w = QPushButton("Z-")
         w.clicked.connect(self.bouton_moved)
         grid.addWidget(w, 2, 3)
+        w = QPushButton("Home")
+        w.clicked.connect(self.home)
+        grid.addWidget(w, 2, 2)
         vbox.addLayout(grid)
 
         box = QHBoxLayout()
@@ -135,3 +138,7 @@ class StageWindow(QWidget):
             pos[2] -= float(self.z_offset_sel.currentText())
             self.stage.move_to(pos)
         self.in_motion = False
+
+    def home(self):
+        if self.stage is None:
+            return

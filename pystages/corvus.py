@@ -123,6 +123,14 @@ class Corvus(Stage):
             while int(self.send_receive("{0} getcaldone".format(i + 1))) != 3:
                 time.sleep(0.1)
 
+    def home(self):
+        """
+        Execute limit-switch move.
+        Take caution for collisions before calling this method !
+        """
+        # Call for calibration
+        self.send("cal")
+
     def move_relative(self, x, y, z):
         """
         Move stage relative to current position.

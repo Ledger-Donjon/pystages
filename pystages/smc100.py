@@ -278,6 +278,12 @@ class SMC100(Stage):
             commands.append(f"{addr}PA{position:.5f}")
         self.link.send(None, "\r\n".join(commands))
 
+    def home(self):
+        """
+        Perform home search.
+        """
+        self.home_search()
+
     def home_search(self):
         """
         Perform home search.

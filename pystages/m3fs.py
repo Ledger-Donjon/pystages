@@ -170,3 +170,7 @@ class M3FS(Stage):
     @property
     def is_moving(self) -> bool:
         return bool(self.__get_closed_loop_status()[0] & 4)
+
+    def home(self):
+        """Nothing specific for the M3FS for homing."""
+        pass

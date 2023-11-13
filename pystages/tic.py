@@ -187,6 +187,10 @@ class Tic(Stage):
     def exit_safe_start(self):
         self.quick(TicCommand.EXIT_SAFE_START)
 
+    def home(self):
+        """Triggers a Home command without blocking."""
+        self.go_home(TicDirection.REVERSE, False)
+
     def go_home(self, direction: TicDirection, wait: bool = True):
         """
         Run the homing procedure.
