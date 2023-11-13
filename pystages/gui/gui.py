@@ -94,7 +94,7 @@ class StageWindow(QWidget):
         grid.addWidget(w, 2, 3)
         w = QPushButton("Home")
         w.clicked.connect(self.home)
-        grid.addWidget(w, 2, 2)
+        grid.addWidget(w, 1, 1)
         vbox.addLayout(grid)
 
         box = QHBoxLayout()
