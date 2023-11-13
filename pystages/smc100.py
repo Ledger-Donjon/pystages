@@ -280,7 +280,7 @@ class SMC100(Stage):
 
     def home(self):
         """
-        Perform home search.
+        Perform home search, without blocking.
         """
         self.home_search()
 
@@ -398,6 +398,7 @@ class SMC100(Stage):
     def is_moving(self) -> bool:
         """
         Indicates if the stage is currently moving due to MOVE, HOME or JOG operation.
+
         :return: Moving state of the stage
         """
         for addr in self.addresses:
@@ -429,7 +430,7 @@ class SMC100(Stage):
         DISABLE state makes the motor not energized and opens the control loop.
 
         :param addr: address of the axis to operate.
-         If None is passed, it applies to all controllers
+            If None is passed, it applies to all controllers
         :param enter: True to enter, False to leave DISABLE state
         """
         # MM0 changes the controller’s state from READY to DISABLE (enter)

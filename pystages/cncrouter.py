@@ -52,7 +52,7 @@ class CNCRouter(Stage):
 
         :param dev: Serial device. For instance `'/dev/ttyUSB0'`.
         :param reset_wait_time: Depending on the state of the stage, it can take some time for
-         GRBL to reset. This parameter makes the wait time to be tuned, by giving a time in seconds.
+            GRBL to reset. This parameter makes the wait time to be tuned, by giving a time in seconds.
         """
 
         super().__init__(num_axis=3)
@@ -70,7 +70,7 @@ class CNCRouter(Stage):
 
         :return: True if the GRBL sent the correct prompt at the end of the reset
         :param wait_time: Depending on the state of the stage, it can take some time for GRBL to
-         reset. This parameter makes the wait time to be tuned, by giving a time in seconds.
+            reset. This parameter makes the wait time to be tuned, by giving a time in seconds.
         """
         if wait_time is None:
             wait_time = self.reset_wait_time
@@ -165,7 +165,7 @@ class CNCRouter(Stage):
         router
 
         :return: A tuple containing the status and a dictionary of all other parameters in the
-         output of the command.
+            output of the command.
         """
         self.send("?", eol="")
         status = self.receive()
@@ -221,7 +221,7 @@ class CNCRouter(Stage):
 
         :param until: The expected response indicating the end of received lines.
         :return: The list of all received lines. Note that the expected line is not included in the
-         list.
+            list.
         """
         lines = []
         while (l := self.serial.readline().strip().decode()) != until:
@@ -291,7 +291,7 @@ class CNCRouter(Stage):
         Queries the current status of the CNC in order to determine if the CNC is moving
 
         :return: True if the CNC reports that a cycle is running (Run) or
-         if it is in a middle of a homing cycle.
+            if it is in a middle of a homing cycle.
         """
         while (status := self.get_current_status()) is None:
             pass
