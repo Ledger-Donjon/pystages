@@ -142,3 +142,5 @@ class StageWindow(QWidget):
     def home(self):
         if self.stage is None:
             return
+
+        self.stage.home()

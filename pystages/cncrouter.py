@@ -304,3 +304,12 @@ class CNCRouter(Stage):
         :return: The response of the CNC ('ok' if command has been submitted correctly).
         """
         return self.send_receive("G92 X0 Y0 Z0")
+
+    def home(self):
+        """
+        Sends a `$H` command. The stage responds a message `[MSG:Sleeping]` after `ok`.
+        
+        Take caution for collisions before calling this method !
+        """
+        self.send("$H")
+        
