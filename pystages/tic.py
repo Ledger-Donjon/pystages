@@ -23,6 +23,7 @@ from enum import Enum
 from time import sleep
 from .stage import Stage
 from .vector import Vector
+from .exceptions import ConnectionFailure
 
 
 class TicVariable(Enum):
@@ -124,7 +125,11 @@ class Tic(Stage):
 
     def __init__(self):
         super().__init__()
-        self.dev = usb.core.find(idVendor=0x1FFB, idProduct=0x00B5)
+        dev = usb.core.find(idVendor=0x1FFB, idProduct=0x00B5)
+        if isinstance(dev, usb.core.Device):
+            self.dev = dev
+        else:
+            raise ConnectionFailure("Tic stepper motor not found.")
         self.dev.set_configuration()
         self.energize()
         self.poll_interval = 0.1
