@@ -30,15 +30,17 @@ class Corvus(Stage):
     Class to command Corvus Eco XYZ stage controller.
     """
 
-    def __init__(self, dev):
+    def __init__(self, dev: Optional[str] = None, serial_number: Optional[str] = None):
         """
         Open serial device to connect to the Corvus controller. Raise a
         ConnectionFailure exception if the serial device could not be open.
 
         :param dev: Serial device path. For instance '/dev/ttyUSB0'.
+        :param serial_number: Device Serial Number. For instance 'A600AAAA'.
         """
         super().__init__(num_axis=3)
         try:
+            dev = dev or self.find_device(serial_number=serial_number)
             self.serial = serial.Serial(dev, 57600)
         except serial.serialutil.SerialException as e:
             raise ConnectionFailure() from e
