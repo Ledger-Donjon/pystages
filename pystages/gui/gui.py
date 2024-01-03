@@ -26,15 +26,18 @@ class StageType(str, Enum):
 
 class StageWindow(QWidget):
     def connect(self, on_off):
-        print(on_off, selected := self.stage_selection.currentText())
         if on_off:
+            selected = self.stage_selection.currentText()
+            port = self.port_selection.currentData()
+            dev = port.device if isinstance(port, ListPortInfo) else None
+
             # Instanciate stage according to current stage selection
             if selected == StageType.CNC:
-                self.stage = CNCRouter()
+                self.stage = CNCRouter(dev)
             elif selected == StageType.Corvus:
-                self.stage = Corvus()
+                self.stage = Corvus(dev)
             elif selected == StageType.SMC:
-                self.stage = SMC100()
+                self.stage = SMC100(dev, [1, 2])
             self.position_timer.start(100)
         else:
             del self.stage
