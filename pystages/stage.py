@@ -42,20 +42,35 @@ class Stage(ABC):
         self._minimums: Optional[Vector] = None
         self._maximums: Optional[Vector] = None
 
-    def find_device(self, pid=None, vid=None) -> str:
-        # Try to find automatically the device according to given informations in parameter
+    def find_device(
+        self,
+        pid: Optional[int] = None,
+        vid: Optional[int] = None,
+        serial_number: Optional[str] = None,
+    ) -> str:
+        """
+        Find automatically one device according to given information in parameters
+
+        :param pid: Product ID of the device. If None, not a limiting criteria.
+        :param vid: Vendor ID of the device. If None, not a limiting criterial.
+        :param serial_number: serial number of the device. If not None, the device
+            must have a serial number and matches the given value.
+        :return: The device path to the communication port.
+        """
         possible_ports = []
         for port in comports():
+            if serial_number is not None:
+                if port.serial_number == serial_number:
+                    possible_ports.append(port)
+                continue
             if (port.pid, port.vid) == (pid, vid):
                 possible_ports.append(port)
         if len(possible_ports) > 1:
-            raise RuntimeError(
-                "Multiple CNCRouter devices found! I don't know which one to use."
-            )
+            raise RuntimeError("Multiple devices found! I don't know which one to use.")
         elif len(possible_ports) == 1:
             dev = possible_ports[0].device
         else:
-            raise RuntimeError("No CNCRouter device found")
+            raise RuntimeError("No device found")
         return dev
 
     @property
