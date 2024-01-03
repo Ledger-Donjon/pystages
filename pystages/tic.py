@@ -231,7 +231,7 @@ class Tic(Stage):
     @position.setter
     def position(self, value: Vector):
         # To check dimension and range of the given value
-        super(__class__, self.__class__).position.fset(self, value)
+        super(__class__, self.__class__).position.fset(self, value)  # type: ignore
         self.target_position = value.x
         while self.position.x != value.x:
             sleep(self.poll_interval)

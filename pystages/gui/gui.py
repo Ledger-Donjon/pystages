@@ -1,4 +1,5 @@
 #!/bin/python3
+from typing import Optional
 from PyQt6.QtWidgets import (
     QWidget,
     QHBoxLayout,
@@ -38,13 +39,14 @@ class StageWindow(QWidget):
         else:
             del self.stage
             self.stage = None
+
             self.position_timer.stop()
 
     def __init__(self):
         super().__init__()
 
         # Current stage
-        self.stage: Stage = None
+        self.stage: Optional[Stage] = None
 
         # This flag is used to limit the communication
         # with the stage by not making updates of the position
@@ -123,6 +125,7 @@ class StageWindow(QWidget):
             return
         self.in_motion = True
         button = QObject().sender()
+        assert isinstance(button, QPushButton)
         axe, direction = button.text()
         axe = {"X": 0, "Y": 1, "Z": 2}[axe]
         step = float(direction + self.step_selection.currentText())
@@ -142,5 +145,4 @@ class StageWindow(QWidget):
     def home(self):
         if self.stage is None:
             return
-
         self.stage.home()

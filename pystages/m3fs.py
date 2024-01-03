@@ -17,7 +17,8 @@
 # Copyright 2018-2020 Ledger SAS, written by Olivier Hériveaux
 
 
-import serial
+from typing import Optional
+import serial.serialutil
 from binascii import hexlify
 from .exceptions import ConnectionFailure, ProtocolError, VersionNotSupported
 from .stage import Stage
@@ -153,13 +154,13 @@ class M3FS(Stage):
         :getter: Query and return current stage position.
         :setter: Move stage. Wait until position is reached.
         """
-        motor_status, position, error = self.__get_closed_loop_status()
+        _, position, _ = self.__get_closed_loop_status()
         return Vector(position * self.resolution_um)
 
     @position.setter
     def position(self, value: Vector):
         # To check dimension and range of the given value
-        super(__class__, self.__class__).position.fset(self, value)
+        super(__class__, self.__class__).position.fset(self, value)  # type: ignore
 
         val = round(value.x / self.resolution_um).to_bytes(4, "big", signed=True)
         self.command(8, hexlify(val).decode())

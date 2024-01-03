@@ -17,7 +17,8 @@
 # Copyright 2018-2022 Ledger SAS, written by Olivier Hériveaux
 
 
-import serial
+from typing import Optional
+import serial.serialutil
 import time
 from .exceptions import ConnectionFailure
 from .vector import Vector
@@ -34,7 +35,7 @@ class Corvus(Stage):
         Open serial device to connect to the Corvus controller. Raise a
         ConnectionFailure exception if the serial device could not be open.
 
-        :param dev: Serial device. For instance '/dev/ttyUSB0'.
+        :param dev: Serial device path. For instance '/dev/ttyUSB0'.
         """
         super().__init__(num_axis=3)
         try:
@@ -174,7 +175,7 @@ class Corvus(Stage):
     @position.setter
     def position(self, value: Vector):
         # To check dimension and range of the given value
-        super(__class__, self.__class__).position.fset(self, value)
+        super(__class__, self.__class__).position.fset(self, value)  # type: ignore
         self.send("3 setdim")
         self.send("{0} {1} {2} move".format(value.x, value.y, value.z))
 

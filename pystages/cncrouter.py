@@ -20,7 +20,7 @@
 #
 # Copyright 2018-2022 Ledger SAS, written by Michaël Mouchous
 
-import serial
+import serial.serialutil
 import time
 from typing import Optional, Tuple, List, Union
 from .exceptions import ConnectionFailure
@@ -45,7 +45,7 @@ class CNCRouter(Stage):
     Class to command CNC routers.
     """
 
-    def __init__(self, dev: str = None, reset_wait_time=2.0):
+    def __init__(self, dev: Optional[str] = None, reset_wait_time=2.0):
         """
         Open serial device to connect to the CNC routers. Raise a
         ConnectionFailure exception if the serial device could not be open.
@@ -276,7 +276,7 @@ class CNCRouter(Stage):
     @position.setter
     def position(self, value: Vector):
         # To check dimension and range of the given value
-        super(__class__, self.__class__).position.fset(self, value)
+        super(__class__, self.__class__).position.fset(self, value)  # type: ignore
 
         command = f"G0 X{value.x}"
         if len(value) > 1:
@@ -308,8 +308,7 @@ class CNCRouter(Stage):
     def home(self):
         """
         Sends a `$H` command. The stage responds a message `[MSG:Sleeping]` after `ok`.
-        
+
         Take caution for collisions before calling this method !
         """
         self.send("$H")
-        
