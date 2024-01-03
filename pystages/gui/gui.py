@@ -9,13 +9,18 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QPushButton,
     QCheckBox,
+    QLineEdit,
 )
-from PyQt6.QtCore import QObject, QTimer
+from PyQt6.QtCore import QObject, QTimer, QLocale
+from PyQt6.QtGui import QDoubleValidator
 from ..cncrouter import CNCRouter
 from ..corvus import Corvus
 from ..smc100 import SMC100
 from ..stage import Stage
 from enum import Enum
+from serial.tools.list_ports import comports
+from serial.tools.list_ports_common import ListPortInfo
+from ..vector import Vector
 
 
 class StageType(str, Enum):
@@ -25,6 +30,10 @@ class StageType(str, Enum):
 
 
 class StageWindow(QWidget):
+    def set_controls_enabled(self, enabled: bool):
+        for c in self.controls:
+            c.setEnabled(enabled)
+
     def connect(self, on_off):
         if on_off:
             selected = self.stage_selection.currentText()
@@ -39,11 +48,17 @@ class StageWindow(QWidget):
             elif selected == StageType.SMC:
                 self.stage = SMC100(dev, [1, 2])
             self.position_timer.start(100)
+
         else:
             del self.stage
             self.stage = None
 
             self.position_timer.stop()
+
+        self.stage_selection.setDisabled(on_off)
+        self.port_selection.setDisabled(on_off)
+
+        self.set_controls_enabled(on_off)
 
     def __init__(self):
         super().__init__()
@@ -55,6 +70,9 @@ class StageWindow(QWidget):
         # with the stage by not making updates of the position
         self.in_motion = False
 
+        # Moving controls
+        self.controls = []
+
         vbox = QVBoxLayout()
         self.setLayout(vbox)
 
@@ -65,6 +83,18 @@ class StageWindow(QWidget):
         self.stage_selection = w = QComboBox()
         w.addItems([StageType.CNC, StageType.Corvus, StageType.SMC])
         box.addWidget(w)
+        self.port_selection = w = QComboBox()
+        w.addItem("Auto detection", None)
+        for port in comports():
+            d = port.device
+            if port.vid and port.pid:
+                d += f" -- {port.vid:04x}:{port.pid:04x}"
+            if port.product:
+                d += f" -- {port.product}"
+            if port.serial_number:
+                d += f" -- {port.serial_number}"
+            w.addItem(d, userData=port)
+        box.addWidget(w)
         self.connect_button = w = QPushButton("Connect")
         w.setCheckable(True)
         w.clicked.connect(self.connect)
@@ -72,33 +102,42 @@ class StageWindow(QWidget):
 
         box = QHBoxLayout()
         vbox.addLayout(box)
-        box.addWidget(QLabel("Step (mm)"))
+        box.addWidget(QLabel("Step"))
         self.step_selection = w = QComboBox()
-        w.addItems(["10", "5", "1", "0.5", "0.1"])
-        w.setCurrentText("1")
+        for step in [50, 10, 5, 1, 0.5, 0.1]:
+            w.addItem(f"{step} mm", step)
+        w.setCurrentIndex(3)
         box.addWidget(w)
+        self.controls.append(w)
 
-        grid = QGridLayout()
+        self.moving_grid = grid = QGridLayout()
         w = QPushButton("Y+")
         w.clicked.connect(self.bouton_moved)
+        self.controls.append(w)
         grid.addWidget(w, 0, 1)
         w = QPushButton("X-")
         w.clicked.connect(self.bouton_moved)
+        self.controls.append(w)
         grid.addWidget(w, 1, 0)
         w = QPushButton("Y-")
         w.clicked.connect(self.bouton_moved)
+        self.controls.append(w)
         grid.addWidget(w, 2, 1)
         w = QPushButton("X+")
         w.clicked.connect(self.bouton_moved)
+        self.controls.append(w)
         grid.addWidget(w, 1, 2)
         w = QPushButton("Z+")
         w.clicked.connect(self.bouton_moved)
+        self.controls.append(w)
         grid.addWidget(w, 0, 3)
         w = QPushButton("Z-")
         w.clicked.connect(self.bouton_moved)
+        self.controls.append(w)
         grid.addWidget(w, 2, 3)
         w = QPushButton("Home")
         w.clicked.connect(self.home)
+        self.controls.append(w)
         grid.addWidget(w, 1, 1)
         vbox.addLayout(grid)
 
@@ -107,10 +146,34 @@ class StageWindow(QWidget):
         self.z_offset = w = QCheckBox("Z offset (mm)")
         w.setChecked(True)
         box.addWidget(w)
+        self.controls.append(w)
         self.z_offset_sel = w = QComboBox()
-        w.addItems(["10", "5", "1", "0.5", "0.1"])
-        w.setCurrentText("1")
+        for value in [10, 5, 1, 0.5, 0.1]:
+            w.addItem(f"{value} mm", value)
+        w.setCurrentIndex(2)
         box.addWidget(w)
+        self.controls.append(w)
+
+        v = QDoubleValidator()
+        v.setLocale(QLocale.c())
+        box = QHBoxLayout()
+        vbox.addLayout(box)
+        self.go_x = w = QLineEdit()
+        w.setValidator(v)
+        box.addWidget(w)
+        self.go_y = w = QLineEdit()
+        w.setValidator(v)
+        box.addWidget(w)
+        self.go_z = w = QLineEdit()
+        w.setValidator(v)
+        box.addWidget(w)
+        w = QPushButton("Got to position")
+        w.clicked.connect(self.go_to_position)
+        self.controls.append(w)
+        box.addWidget(w)
+
+        # Disable all controls
+        self.set_controls_enabled(False)
 
         self.position_label = w = QLabel("Pos")
         vbox.addWidget(w)
@@ -131,17 +194,24 @@ class StageWindow(QWidget):
         assert isinstance(button, QPushButton)
         axe, direction = button.text()
         axe = {"X": 0, "Y": 1, "Z": 2}[axe]
-        step = float(direction + self.step_selection.currentText())
+        direction = {"+": 1.0, "-": -1.0}[direction]
+        step = direction * self.step_selection.currentData()
         pos = self.stage.position
-        if axe != 2 and self.z_offset.isChecked():
-            pos[2] += float(self.z_offset_sel.currentText())
+        z_offset = (
+            self.z_offset_sel.currentData()
+            if axe != 2 and self.z_offset.isChecked()
+            else None
+        )
+
+        if z_offset is not None:
+            pos[2] += z_offset
             self.stage.move_to(pos)
 
         pos[axe] += step
         self.stage.move_to(pos)
 
-        if axe != 2 and self.z_offset.isChecked():
-            pos[2] -= float(self.z_offset_sel.currentText())
+        if z_offset is not None:
+            pos[2] -= z_offset
             self.stage.move_to(pos)
         self.in_motion = False
 
@@ -149,3 +219,17 @@ class StageWindow(QWidget):
         if self.stage is None:
             return
         self.stage.home()
+
+    def go_to_position(self):
+        if self.stage is None:
+            return
+        x, y, z = (
+            QLocale.c().toDouble(self.go_x.text())[0],
+            QLocale.c().toDouble(self.go_y.text())[0],
+            QLocale.c().toDouble(self.go_z.text())[0],
+        )
+        pos = self.stage.position
+        pos.x = x
+        pos.y = y
+        pos.z = z
+        self.stage.move_to(pos)
