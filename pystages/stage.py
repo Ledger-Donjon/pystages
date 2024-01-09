@@ -17,7 +17,7 @@
 # Copyright 2018-2022 Ledger SAS, written by Michaël Mouchous
 
 from .vector import Vector
-from typing import Optional
+from typing import Optional, Callable
 from abc import ABC, abstractmethod
 from serial.tools.list_ports import comports
 
@@ -36,7 +36,7 @@ class Stage(ABC):
         self.num_axis = num_axis
         # The wait routine is a function that is called when the wait_move_finished is looping.
         # It can be used to add some temporization and/or UI updates.
-        self.wait_routine = None
+        self.wait_routine: Optional[Callable] = None
 
         # Minimum and maximum software limits
         self._minimums: Optional[Vector] = None

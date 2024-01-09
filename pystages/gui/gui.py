@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
     QCheckBox,
     QLineEdit,
 )
-from PyQt6.QtCore import QObject, QTimer, QLocale
+from PyQt6.QtCore import QObject, QTimer, QLocale, QCoreApplication
 from PyQt6.QtGui import QDoubleValidator
 from ..cncrouter import CNCRouter
 from ..corvus import Corvus
@@ -20,7 +20,6 @@ from ..stage import Stage
 from enum import Enum
 from serial.tools.list_ports import comports
 from serial.tools.list_ports_common import ListPortInfo
-from ..vector import Vector
 
 
 class StageType(str, Enum):
@@ -59,6 +58,9 @@ class StageWindow(QWidget):
         self.port_selection.setDisabled(on_off)
 
         self.set_controls_enabled(on_off)
+
+        if self.stage is not None:
+            self.stage.wait_routine = lambda: QCoreApplication.processEvents()
 
     def __init__(self):
         super().__init__()
