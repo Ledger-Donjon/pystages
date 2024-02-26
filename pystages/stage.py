@@ -184,7 +184,6 @@ class Stage(ABC):
             self.check_dimension(value)
         self._maximums = value
 
-    @abstractmethod
     def home(self):
         """Triggers a non-blocking homing command."""
-        ...
+        self.position = Vector(dim=self.num_axis)
