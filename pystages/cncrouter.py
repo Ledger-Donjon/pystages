@@ -7,18 +7,18 @@
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU Lesser General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 #
 # Values and descriptions of commands and error codes has been taken from GRBL Github repository
 # https://github.com/grbl/grbl
 # and the instruction manual of the CNC 3018 PRO
 # https://drive.google.com/file/d/1yQH9gtO8lWbE-K0dff8g9zq_1xOB57x7
 #
-# Copyright 2018-2022 Ledger SAS, written by Michaël Mouchous
+# Copyright 2018-2023 Ledger SAS, written by Michaël Mouchous
 
 import serial.serialutil
 import time
@@ -50,7 +50,8 @@ class CNCRouter(Stage):
         Open serial device to connect to the CNC routers. Raise a
         ConnectionFailure exception if the serial device could not be open.
 
-        :param dev: Serial device. For instance `'/dev/ttyUSB0'`.
+        :param dev: Serial device. For instance `'/dev/ttyUSB0'`. If not provided, try
+            to discover a suitable device according to device vendor and product IDs
         :param reset_wait_time: Depending on the state of the stage, it can take some time for
             GRBL to reset. This parameter makes the wait time to be tuned, by giving a time in seconds.
         """

@@ -17,12 +17,12 @@
 # Copyright 2018-2022 Ledger SAS, written by Olivier Hériveaux
 
 
-from typing import Optional
 import serial.serialutil
 import time
 from .exceptions import ConnectionFailure
 from .vector import Vector
 from .stage import Stage
+from typing import Optional
 
 
 class Corvus(Stage):

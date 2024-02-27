@@ -23,7 +23,7 @@ import time
 from .vector import Vector
 from .exceptions import ProtocolError, ConnectionFailure
 from enum import Enum, Flag
-from typing import Optional, List
+from typing import Optional, List, Union
 from .stage import Stage
 
 
@@ -42,9 +42,11 @@ class Link:
     controller in the daisy chain is always zero.
     """
 
-    def __init__(self, dev: str):
+    def __init__(self, dev: Optional[str] = None):
         """
-        :param dev: Serial device. For instance '/dev/ttyUSB0' or 'COM0'.
+        :param dev: Serial device. For instance `'/dev/ttyUSB0'`.
+            If not provided, a suitable device is searched according to
+            according to vendor and product IDs
         """
         try:
             self.serial = serial.Serial(port=dev, baudrate=57600, xonxoff=True)
@@ -224,11 +226,13 @@ class SMC100(Stage):
     Class to command Newport SMC100 controllers.
     """
 
-    def __init__(self, dev, addresses: List[int]):
+    def __init__(self, dev: Optional[Union[str, Link, "SMC100"]], addresses: List[int]):
         """
-        :param dev: Serial device string (for instance '/dev/ttyUSB0' or
+        :param dev: Serial device string (for instance `'/dev/ttyUSB0'` or
             'COM0'), an instance of Link, or an instance of SMC100 sharing
             the same serial device.
+            If not provided, a suitable device is searched according to
+            according to vendor and product IDs
         :param addresses: An iterable of int controller addresses.
         """
         super().__init__(num_axis=len(addresses))
