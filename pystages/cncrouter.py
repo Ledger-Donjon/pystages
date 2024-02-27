@@ -291,7 +291,7 @@ class CNCRouter(Stage):
         Queries the current status of the CNC in order to determine if the CNC is moving
 
         :return: True if the CNC reports that a cycle is running (Run) or
-            if it is in a middle of a homing cycle.
+            if it is in a middle of a homing cycle (Home).
         """
         while (status := self.get_current_status()) is None:
             pass
@@ -305,10 +305,13 @@ class CNCRouter(Stage):
         """
         return self.send_receive("G92 X0 Y0 Z0")
 
-    def home(self):
+    def home(self, wait=False):
         """
         Sends a `$H` command. The stage responds a message `[MSG:Sleeping]` after `ok`.
-
         Take caution for collisions before calling this method !
+
+        :param wait: Optionally waits for move operation to be done.
         """
         self.send("$H")
+        if wait:
+            self.wait_move_finished()

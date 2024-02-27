@@ -278,11 +278,15 @@ class SMC100(Stage):
             commands.append(f"{addr}PA{position:.5f}")
         self.link.send(None, "\r\n".join(commands))
 
-    def home(self):
+    def home(self, wait=False):
         """
-        Perform home search, without blocking.
+        Perform home search.
+
+        :param wait: Optionally waits for move operation to be done.
         """
         self.home_search()
+        if wait:
+            self.wait_move_finished()
 
     def home_search(self):
         """

@@ -184,6 +184,9 @@ class Stage(ABC):
             self.check_dimension(value)
         self._maximums = value
 
-    def home(self):
-        """Triggers a non-blocking homing command."""
-        self.position = Vector(dim=self.num_axis)
+    def home(self, wait=False):
+        """Triggers a homing command.
+
+        :param wait: Optionally waits for move operation to be done.
+        """
+        self.move_to(Vector(dim=self.num_axis), wait=wait)

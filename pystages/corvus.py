@@ -126,13 +126,17 @@ class Corvus(Stage):
             while int(self.send_receive("{0} getcaldone".format(i + 1))) != 3:
                 time.sleep(0.1)
 
-    def home(self):
+    def home(self, wait=False):
         """
         Execute limit-switch move.
         Take caution for collisions before calling this method !
+
+        :param wait: Optionally waits for move operation to be done.
         """
         # Call for calibration
         self.send("cal")
+        if wait:
+            self.wait_move_finished()
 
     def move_relative(self, x, y, z):
         """

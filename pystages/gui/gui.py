@@ -220,7 +220,7 @@ class StageWindow(QWidget):
     def home(self):
         if self.stage is None:
             return
-        self.stage.home()
+        self.stage.home(wait=True)
 
     def go_to_position(self):
         if self.stage is None:

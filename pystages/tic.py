@@ -192,9 +192,13 @@ class Tic(Stage):
     def exit_safe_start(self):
         self.quick(TicCommand.EXIT_SAFE_START)
 
-    def home(self):
-        """Triggers a Home command without blocking."""
+    def home(self, wait=False):
+        """Triggers a Home command.
+
+        :param wait: Optionally waits for move operation to be done."""
         self.go_home(TicDirection.REVERSE, False)
+        if wait:
+            self.wait_move_finished()
 
     def go_home(self, direction: TicDirection, wait: bool = True):
         """
