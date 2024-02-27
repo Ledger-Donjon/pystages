@@ -26,7 +26,7 @@ from .vector import Vector
 from .exceptions import ConnectionFailure
 
 
-class TicVariable(Enum):
+class TicVariable(tuple[int, int, bool], Enum):
     """
     Variables which can be read using GET_VARIABLE command.
     https://www.pololu.com/docs/0J71/7
@@ -74,7 +74,7 @@ class TicVariable(Enum):
     LAST_HP_DRIVER_ERRORS = (0xFF, 1, False)
 
 
-class TicCommand(Enum):
+class TicCommand(int, Enum):
     """
     Command codes for Polulu Tic Stepper Motor Controller.
     https://www.pololu.com/docs/0J71/8
@@ -108,7 +108,7 @@ class TicCommand(Enum):
     START_BOOTLOADER = 0xFF
 
 
-class TicDirection(Enum):
+class TicDirection(int, Enum):
     """Possible directions for homing"""
 
     REVERSE = 0
@@ -140,7 +140,7 @@ class Tic(Stage):
 
         :param command: Command.
         """
-        self.dev.ctrl_transfer(0x40, command.value, 0, 0, 0)
+        self.dev.ctrl_transfer(0x40, command, 0, 0, 0)
 
     def write_7(self, command: TicCommand, data: int):
         """
@@ -149,7 +149,7 @@ class Tic(Stage):
         :param command: Command.
         :param data: Value to be written.
         """
-        self.dev.ctrl_transfer(0x40, command.value, data, 0, 0)
+        self.dev.ctrl_transfer(0x40, command, data, 0, 0)
 
     def write_32(self, command: TicCommand, data: int):
         """
@@ -158,7 +158,7 @@ class Tic(Stage):
         :param command: Command code.
         :param data: Value to be written.
         """
-        self.dev.ctrl_transfer(0x40, command.value, data & 0xFFFF, data >> 16, 0)
+        self.dev.ctrl_transfer(0x40, command, data & 0xFFFF, data >> 16, 0)
 
     def block_read(self, command: TicCommand, offset, length) -> bytes:
         """
@@ -168,7 +168,7 @@ class Tic(Stage):
         :param offset: Data offset.
         :param length: Data length.
         """
-        return bytes(self.dev.ctrl_transfer(0xC0, command.value, 0, offset, length))
+        return bytes(self.dev.ctrl_transfer(0xC0, command, 0, offset, length))
 
     def set_setting(self, command: TicCommand, data, offset):
         """
@@ -178,7 +178,7 @@ class Tic(Stage):
         :param data: Value to be written.
         :param offset: Write offset.
         """
-        self.dev.ctrl_transfer(0x40, command.value, data, offset, 0)
+        self.dev.ctrl_transfer(0x40, command, data, offset, 0)
 
     def energize(self):
         self.quick(TicCommand.ENERGIZE)
@@ -207,7 +207,7 @@ class Tic(Stage):
         :param wait: If True, wait for homing procedure end.
         """
         self.exit_safe_start()
-        self.write_7(TicCommand.GO_HOME, direction.value)
+        self.write_7(TicCommand.GO_HOME, direction)
         if wait:
             while self.get_variable(TicVariable.MISC_FLAGS) & (1 << 4):
                 self.exit_safe_start()
@@ -220,7 +220,7 @@ class Tic(Stage):
         self.write_32(TicCommand.SET_TARGET_VELOCITY, velocity)
 
     def get_variable(self, variable: TicVariable) -> int:
-        offset, length, signed = variable.value
+        offset, length, signed = variable
         return int.from_bytes(
             self.block_read(TicCommand.GET_VARIABLE, offset, length),
             "little",
@@ -240,7 +240,10 @@ class Tic(Stage):
     @position.setter
     def position(self, value: Vector):
         # To check dimension and range of the given value
-        super(__class__, self.__class__).position.fset(self, value)  # type: ignore
+        pos_setter = Stage.position.fset
+        assert pos_setter is not None
+        pos_setter(self, value)
+
         self.target_position = value.x
         while self.position.x != value.x:
             sleep(self.poll_interval)

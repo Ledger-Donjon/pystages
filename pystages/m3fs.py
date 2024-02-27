@@ -186,7 +186,9 @@ class M3FS(Stage):
     @position.setter
     def position(self, value: Vector):
         # To check dimension and range of the given value
-        super(__class__, self.__class__).position.fset(self, value)  # type: ignore
+        pos_setter = Stage.position.fset
+        assert pos_setter is not None
+        pos_setter(self, value)
 
         val = round(value.x / self.resolution_um).to_bytes(4, "big", signed=True)
         self.command(M3FSCommand.MOVE_TO_TARGET, hexlify(val).decode())

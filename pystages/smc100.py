@@ -18,11 +18,11 @@
 # written by Olivier Hériveaux, Manuel San Pedro and Michaël Mouchous
 
 
-import serial
+import serial.serialutil
 import time
 from .vector import Vector
 from .exceptions import ProtocolError, ConnectionFailure
-from enum import Enum, IntFlag
+from enum import Enum, Flag
 from typing import Optional, List
 from .stage import Stage
 
@@ -113,12 +113,12 @@ class Link:
         """
         query_string = f'{"" if address is None else address}{command}'
         res = self.receive()
-        if res[: len(query_string)] != query_string:
+        if res is None or res[: len(query_string)] != query_string:
             raise ProtocolError(query_string, res)
         return res[len(query_string) :]
 
 
-class State(Enum):
+class State(int, Enum):
     """
     Possible controller states.
     The values in this enumeration corresponds to the values returned by the
@@ -148,7 +148,7 @@ class State(Enum):
     JOGGING_FROM_DISABLE = 0x47
 
 
-class Error(IntFlag):
+class Error(int, Flag):
     """
     Information returned when querying positioner error.
     """
@@ -171,8 +171,8 @@ class ErrorAndState:
     Information returned when querying positioner error and controller state.
     """
 
-    state = None
-    error = None
+    state = State.NOT_REFERENCED_FROM_RESET
+    error = Error.NO_ERROR
 
     @property
     def is_referenced(self) -> bool:
@@ -183,41 +183,39 @@ class ErrorAndState:
             raise RuntimeError("state not available")
         else:
             return not (
-                (self.state.value >= State.NOT_REFERENCED_FROM_RESET.value)
-                and (self.state.value <= State.NOT_REFERENCED_FROM_JOGGING.value)
+                (self.state >= State.NOT_REFERENCED_FROM_RESET)
+                and (self.state <= State.NOT_REFERENCED_FROM_JOGGING)
             )
 
     @property
     def is_ready(self) -> bool:
         """:return: True if state is one of READY_x states."""
-        return (self.state.value >= State.READY_FROM_HOMING.value) and (
-            self.state.value <= State.READY_FROM_JOGGING.value
+        return (self.state >= State.READY_FROM_HOMING) and (
+            self.state <= State.READY_FROM_JOGGING
         )
 
     @property
     def is_moving(self) -> bool:
         """:return: True if state is MOVING."""
-        return self.state.value == State.MOVING.value
+        return self.state == State.MOVING
 
     @property
     def is_homing(self) -> bool:
         """:return: True if state is one of HOMING_x states."""
-        return (self.state.value >= State.HOMING_RS232.value) and (
-            self.state.value <= State.HOMING_SMCRC.value
-        )
+        return (self.state >= State.HOMING_RS232) and (self.state <= State.HOMING_SMCRC)
 
     @property
-    def is_jogging(self):
+    def is_jogging(self) -> bool:
         """:return: True if state is one of JOGGING_x states."""
-        return (self.state.value >= State.JOGGING_FROM_READY.value) and (
-            self.state.value <= State.JOGGING_FROM_DISABLE.value
+        return (self.state >= State.JOGGING_FROM_READY) and (
+            self.state <= State.JOGGING_FROM_DISABLE
         )
 
     @property
-    def is_disabled(self):
+    def is_disabled(self) -> bool:
         """:return: True if state is one of DISABLE_x states."""
-        return (self.state.value >= State.DISABLE_FROM_READY.value) and (
-            self.state.value <= State.DISABLE_FROM_JOGGING.value
+        return (self.state >= State.DISABLE_FROM_READY) and (
+            self.state <= State.DISABLE_FROM_JOGGING
         )
 
 
@@ -261,20 +259,24 @@ class SMC100(Stage):
         # It is faster to send all the request and then get all the responses.
         # This reduces a lot the latency.
         for i, addr in enumerate(self.addresses):
-            r = self.link.query(addr, "TP", lazy_res=False)
-            val = float(r)
+            res = self.link.query(addr, "TP", lazy_res=False)
+            if res is None:
+                raise ProtocolError("TP")
+            val = float(res)
             result[i] = val
         return result
 
     @position.setter
     def position(self, value: Vector):
         # To check dimension and range of the given value
-        super(__class__, self.__class__).position.fset(self, value)
+        pos_setter = Stage.position.fset
+        assert pos_setter is not None
+        pos_setter(self, value)
 
         # Enable the motors
         self.is_disabled = False
         commands = []
-        for position, addr in zip(value, self.addresses):
+        for position, addr in zip(value.data, self.addresses):
             commands.append(f"{addr}PA{position:.5f}")
         self.link.send(None, "\r\n".join(commands))
 
@@ -318,7 +320,7 @@ class SMC100(Stage):
         :return: Current error and state, in a ErrorAndState instance.
         """
         res = self.link.query(addr, "TS")
-        if len(res) != 6:
+        if res is None or len(res) != 6:
             raise ProtocolError("TS", res)
         result = ErrorAndState()
         result.error = Error(int(res[:4], 16))
@@ -340,7 +342,10 @@ class SMC100(Stage):
         """
         Get controller's RS-485 address. int in [2, 31].
         """
-        return int(self.link.query(addr, "SA"))
+        res = self.link.query(addr, "SA")
+        if res is None:
+            raise ProtocolError("SA")
+        return int(res)
 
     def set_controller_address(self, addr: int, value: int):
         """

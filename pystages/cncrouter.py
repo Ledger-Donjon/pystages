@@ -224,9 +224,9 @@ class CNCRouter(Stage):
             list.
         """
         lines = []
-        while (l := self.serial.readline().strip().decode()) != until:
-            if len(l):
-                lines.append(l)
+        while (line := self.serial.readline().strip().decode()) != until:
+            if len(line):
+                lines.append(line)
         return lines
 
     def receive(self) -> str:
@@ -276,7 +276,9 @@ class CNCRouter(Stage):
     @position.setter
     def position(self, value: Vector):
         # To check dimension and range of the given value
-        super(__class__, self.__class__).position.fset(self, value)  # type: ignore
+        pos_setter = Stage.position.fset
+        assert pos_setter is not None
+        pos_setter(self, value)
 
         command = f"G0 X{value.x}"
         if len(value) > 1:
