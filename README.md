@@ -27,3 +27,4 @@ This library requires the following packages:
 - [pyserial](https://pypi.org/project/pyserial/)
 - [numpy](https://pypi.org/project/numpy/)
 - [pyusb](https://pypi.org/project/pyusb/)
+- [PyQt6](https://pypi.org/project/PyQt6/)
