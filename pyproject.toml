@@ -20,7 +20,8 @@ classifiers = [
 dependencies = [
     "pyserial",
     "pyusb",
-    "numpy"
+    "numpy",
+    "pyqt6"
 ]
 
 [project.urls]
