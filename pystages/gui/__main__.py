@@ -2,7 +2,6 @@ from PyQt6.QtWidgets import QApplication, QStyleFactory
 import sys
 from PyQt6.QtGui import QIcon, QPalette, QColor
 from .util import resource_path
-import sys
 from .gui import StageWindow
 
 app = QApplication(sys.argv)
