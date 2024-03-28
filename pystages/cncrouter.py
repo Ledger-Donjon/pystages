@@ -30,7 +30,7 @@ from .grbl import GRBLSetting, InvertMask, StatusReportMask
 from .stage import Stage
 
 
-class CNCStatus(Enum):
+class CNCStatus(str, Enum):
     IDLE = "Idle"
     RUN = "Run"
     HOLD = "Hold"
@@ -38,6 +38,14 @@ class CNCStatus(Enum):
     HOME = "Home"
     ALARM = "Alarm"
     CHECK = "Check"
+
+
+class CNCError(Exception):
+    """Exception raised when a specific error is detected by the CNC"""
+
+    def __init__(self, message: str, cncstatus: CNCStatus):
+        super().__init__(message)
+        self.cncstatus = cncstatus
 
 
 class CNCRouter(Stage):
@@ -168,8 +176,14 @@ class CNCRouter(Stage):
         :return: A tuple containing the status and a dictionary of all other parameters in the
             output of the command.
         """
+
         self.send("?", eol="")
         status = self.receive()
+
+        # Retry, sometimes it does not respond
+        if status == b"":
+            self.send("?", eol="")
+            status = self.receive()
 
         # Sometimes, the CNC returns 'ok' and the actual response is following.
         while status == "ok":
@@ -179,8 +193,15 @@ class CNCRouter(Stage):
         if status is None:
             return None
 
-        # The output
+        # The possible outputs
         # '<Idle|MPos:1.000,3.000,4.000|FS:0,0|WCO:0.000,0.000,0.000>'
+        # 'ALARM:1'
+
+        if status.startswith("ALARM:1"):
+            # The ALARM message is followed by something like
+            # '[MSG:Reset to continue]'
+            next = self.receive()
+            raise CNCError(next, CNCStatus.ALARM)
 
         # Discard any unwanted format
         if not (status.startswith("<") and status.endswith(">")):
@@ -237,10 +258,17 @@ class CNCRouter(Stage):
 
         :return: Received response string, CR-LF removed.
         """
+        tries = 10
         # Read at least 2 bytes for CR-LF.
         response = self.serial.read(2)
         while response[-2:] != b"\r\n":
-            response += self.serial.read(1)
+            part = self.serial.read(1)
+            response += part
+            # Give a chance to get out of this
+            if part == b"":
+                tries -= 1
+            if tries == 0:
+                return b""
         # Remove CR-LF and return as string
         return response[:-2].decode()
 
