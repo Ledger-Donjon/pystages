@@ -181,7 +181,7 @@ class CNCRouter(Stage):
         status = self.receive()
 
         # Retry, sometimes it does not respond
-        if status == b"":
+        if status == "":
             self.send("?", eol="")
             status = self.receive()
 
@@ -268,7 +268,7 @@ class CNCRouter(Stage):
             if part == b"":
                 tries -= 1
             if tries == 0:
-                return b""
+                return ""
         # Remove CR-LF and return as string
         return response[:-2].decode()
 
