@@ -31,6 +31,10 @@ from .stage import Stage
 
 
 class CNCStatus(str, Enum):
+    """
+    Possible statuses that the CNC can report.
+    """
+
     IDLE = "Idle"
     RUN = "Run"
     HOLD = "Hold"

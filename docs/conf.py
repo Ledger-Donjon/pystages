@@ -21,11 +21,11 @@ sys.path.insert(0, os.path.abspath(".."))
 # -- Project information -----------------------------------------------------
 
 project = "pystages"
-copyright = "2022, Olivier Hériveaux, Manuel San Pedro, Michaël Mouchous"
+copyright = "2024, Olivier Hériveaux, Manuel San Pedro, Michaël Mouchous"
 author = "Olivier Hériveaux, Manuel San Pedro, Michaël Mouchous"
 
 # The full version, including alpha/beta/rc tags
-release = "1.1"
+release = "1.1.1"
 
 
 # -- General configuration ---------------------------------------------------
@@ -33,7 +33,7 @@ release = "1.1"
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ["sphinx.ext.autodoc"]
+extensions = ["sphinx.ext.autodoc", "myst_parser"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -57,3 +57,8 @@ html_theme = "sphinx_rtd_theme"
 html_static_path = []
 
 html_logo = "logo.png"
+
+source_suffix = {
+    ".rst": "restructuredtext",
+    ".md": "markdown",
+}

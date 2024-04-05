@@ -169,7 +169,7 @@ class StageWindow(QWidget):
         self.go_z = w = QLineEdit()
         w.setValidator(v)
         box.addWidget(w)
-        w = QPushButton("Got to position")
+        w = QPushButton("Go to position")
         w.clicked.connect(self.go_to_position)
         self.controls.append(w)
         box.addWidget(w)
