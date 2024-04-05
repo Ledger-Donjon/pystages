@@ -26,7 +26,7 @@ from .vector import Vector
 from .exceptions import ConnectionFailure
 
 
-class TicVariable(tuple[int, int, bool], Enum):
+class TicVariable(Enum):
     """
     Variables which can be read using GET_VARIABLE command.
     https://www.pololu.com/docs/0J71/7
@@ -220,7 +220,7 @@ class Tic(Stage):
         self.write_32(TicCommand.SET_TARGET_VELOCITY, velocity)
 
     def get_variable(self, variable: TicVariable) -> int:
-        offset, length, signed = variable
+        offset, length, signed = variable.value
         return int.from_bytes(
             self.block_read(TicCommand.GET_VARIABLE, offset, length),
             "little",
