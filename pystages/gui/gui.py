@@ -17,6 +17,7 @@ from ..cncrouter import CNCRouter
 from ..corvus import Corvus
 from ..smc100 import SMC100
 from ..stage import Stage
+from ..m3fs import M3FS
 from enum import Enum
 from serial.tools.list_ports import comports
 from serial.tools.list_ports_common import ListPortInfo
@@ -26,6 +27,7 @@ class StageType(str, Enum):
     CNC = "CNC"
     Corvus = "Corvus"
     SMC = "SMC100"
+    M3FS = "M3FS"
 
 
 class StageWindow(QWidget):
@@ -46,6 +48,8 @@ class StageWindow(QWidget):
                 self.stage = Corvus(dev)
             elif selected == StageType.SMC:
                 self.stage = SMC100(dev, [1, 2])
+            elif selected == StageType.M3FS:
+                self.stage = M3FS(dev, baudrate=115200)
             self.position_timer.start(100)
 
         else:
@@ -83,7 +87,7 @@ class StageWindow(QWidget):
         w = QLabel("Stage Selection")
         box.addWidget(w)
         self.stage_selection = w = QComboBox()
-        w.addItems([StageType.CNC, StageType.Corvus, StageType.SMC])
+        w.addItems([StageType.CNC, StageType.Corvus, StageType.SMC, StageType.M3FS])
         box.addWidget(w)
         self.port_selection = w = QComboBox()
         w.addItem("Auto detection", None)
