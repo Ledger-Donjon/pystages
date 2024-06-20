@@ -17,11 +17,12 @@
 # Copyright 2018-2022 Ledger SAS, written by Olivier Hériveaux
 
 
-import serial
+import serial.serialutil
 import time
 from .exceptions import ConnectionFailure
 from .vector import Vector
 from .stage import Stage
+from typing import Optional
 
 
 class Corvus(Stage):
@@ -29,15 +30,17 @@ class Corvus(Stage):
     Class to command Corvus Eco XYZ stage controller.
     """
 
-    def __init__(self, dev):
+    def __init__(self, dev: Optional[str] = None, serial_number: Optional[str] = None):
         """
         Open serial device to connect to the Corvus controller. Raise a
         ConnectionFailure exception if the serial device could not be open.
 
-        :param dev: Serial device. For instance '/dev/ttyUSB0'.
+        :param dev: Serial device path. For instance '/dev/ttyUSB0'.
+        :param serial_number: Device Serial Number. For instance 'A600AAAA'.
         """
         super().__init__(num_axis=3)
         try:
+            dev = dev or self.find_device(serial_number=serial_number)
             self.serial = serial.Serial(dev, 57600)
         except serial.serialutil.SerialException as e:
             raise ConnectionFailure() from e
@@ -123,6 +126,18 @@ class Corvus(Stage):
             while int(self.send_receive("{0} getcaldone".format(i + 1))) != 3:
                 time.sleep(0.1)
 
+    def home(self, wait=False):
+        """
+        Execute limit-switch move.
+        Take caution for collisions before calling this method !
+
+        :param wait: Optionally waits for move operation to be done.
+        """
+        # Call for calibration
+        self.send("cal")
+        if wait:
+            self.wait_move_finished()
+
     def move_relative(self, x, y, z):
         """
         Move stage relative to current position.
@@ -166,7 +181,10 @@ class Corvus(Stage):
     @position.setter
     def position(self, value: Vector):
         # To check dimension and range of the given value
-        super(__class__, self.__class__).position.fset(self, value)
+        pos_setter = Stage.position.fset
+        assert pos_setter is not None
+        pos_setter(self, value)
+
         self.send("3 setdim")
         self.send("{0} {1} {2} move".format(value.x, value.y, value.z))
 

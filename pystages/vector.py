@@ -21,7 +21,7 @@ import unittest
 from typing import Union
 
 
-class Vector:
+class Vector(object):
     """
     Some basic vector manipulation class for stages control.
     """
@@ -163,7 +163,7 @@ class Vector:
 
         result = Vector(dim=dim)
         if len(other) != dim:
-            raise ValueError(f"Incorrect vector size")
+            raise ValueError("Incorrect vector size")
         for i in range(dim):
             result[i] = self[i] * other[i]
         return result
@@ -173,7 +173,7 @@ class Vector:
             return self * (1.0 / other)
         else:
             raise TypeError(
-                f"Incorrect type for second operand. int or float is expected."
+                "Incorrect type for second operand. int or float is expected."
             )
 
 

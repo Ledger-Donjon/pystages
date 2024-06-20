@@ -1,8 +1,3 @@
-.. pystages documentation master file, created by
-   sphinx-quickstart on Tue Jul  7 15:03:18 2020.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 Welcome to pystages's documentation!
 ====================================
 
@@ -24,13 +19,14 @@ The library also provides helper classes for basic vector manipulation
 (:class:`pystages.Autofocus`).
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+  :maxdepth: 2
+  :caption: Contents:
 
-   Vectors <vectors.rst>
-   Autofocus <autofocus.rst>
-   Python API <api.rst>
-   Troubleshooting <troubleshooting.rst>
+  Vectors <vectors.rst>
+  Autofocus <autofocus.rst>
+  Python API <api.rst>
+  GUI <gui.md>
+  Troubleshooting <troubleshooting.rst>
 
 
 Indices and tables

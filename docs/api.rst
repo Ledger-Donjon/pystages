@@ -17,10 +17,10 @@ Classes
 .. automodule:: pystages
     :members:
 
-.. autoclass:: Autofocus
-    :members:
+.. .. autoclass:: Autofocus
+..     :members:
 
-.. autoclass:: Vector
-    :special-members: __init__
-    :members:
+.. .. autoclass:: Vector
+..     :special-members: __init__
+..     :members:
 
