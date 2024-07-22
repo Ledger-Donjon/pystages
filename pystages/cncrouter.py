@@ -7,20 +7,20 @@
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU Lesser General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 #
 # Values and descriptions of commands and error codes has been taken from GRBL Github repository
 # https://github.com/grbl/grbl
 # and the instruction manual of the CNC 3018 PRO
 # https://drive.google.com/file/d/1yQH9gtO8lWbE-K0dff8g9zq_1xOB57x7
 #
-# Copyright 2018-2022 Ledger SAS, written by Michaël Mouchous
+# Copyright 2018-2023 Ledger SAS, written by Michaël Mouchous
 
-import serial
+import serial.serialutil
 import time
 from typing import Optional, Tuple, List, Union
 from .exceptions import ConnectionFailure
@@ -30,7 +30,11 @@ from .grbl import GRBLSetting, InvertMask, StatusReportMask
 from .stage import Stage
 
 
-class CNCStatus(Enum):
+class CNCStatus(str, Enum):
+    """
+    Possible statuses that the CNC can report.
+    """
+
     IDLE = "Idle"
     RUN = "Run"
     HOLD = "Hold"
@@ -40,23 +44,34 @@ class CNCStatus(Enum):
     CHECK = "Check"
 
 
+class CNCError(Exception):
+    """Exception raised when a specific error is detected by the CNC"""
+
+    def __init__(self, message: str, cncstatus: CNCStatus):
+        super().__init__(message)
+        self.cncstatus = cncstatus
+
+
 class CNCRouter(Stage):
     """
     Class to command CNC routers.
     """
 
-    def __init__(self, dev: str, reset_wait_time=2.0):
+    def __init__(self, dev: Optional[str] = None, reset_wait_time=2.0):
         """
         Open serial device to connect to the CNC routers. Raise a
         ConnectionFailure exception if the serial device could not be open.
 
-        :param dev: Serial device. For instance `'/dev/ttyUSB0'`.
+        :param dev: Serial device. For instance `'/dev/ttyUSB0'`. If not provided, try
+            to discover a suitable device according to device vendor and product IDs
         :param reset_wait_time: Depending on the state of the stage, it can take some time for
-         GRBL to reset. This parameter makes the wait time to be tuned, by giving a time in seconds.
+            GRBL to reset. This parameter makes the wait time to be tuned, by giving a time in seconds.
         """
+
         super().__init__(num_axis=3)
         self.reset_wait_time = reset_wait_time
         try:
+            dev = dev or self.find_device(pid=0x7523, vid=0x1A86)
             self.serial = serial.Serial(dev, 115200, timeout=1)
         except serial.serialutil.SerialException as e:
             raise ConnectionFailure() from e
@@ -68,7 +83,7 @@ class CNCRouter(Stage):
 
         :return: True if the GRBL sent the correct prompt at the end of the reset
         :param wait_time: Depending on the state of the stage, it can take some time for GRBL to
-         reset. This parameter makes the wait time to be tuned, by giving a time in seconds.
+            reset. This parameter makes the wait time to be tuned, by giving a time in seconds.
         """
         if wait_time is None:
             wait_time = self.reset_wait_time
@@ -163,10 +178,16 @@ class CNCRouter(Stage):
         router
 
         :return: A tuple containing the status and a dictionary of all other parameters in the
-         output of the command.
+            output of the command.
         """
+
         self.send("?", eol="")
         status = self.receive()
+
+        # Retry, sometimes it does not respond
+        if status == "":
+            self.send("?", eol="")
+            status = self.receive()
 
         # Sometimes, the CNC returns 'ok' and the actual response is following.
         while status == "ok":
@@ -176,8 +197,15 @@ class CNCRouter(Stage):
         if status is None:
             return None
 
-        # The output
+        # The possible outputs
         # '<Idle|MPos:1.000,3.000,4.000|FS:0,0|WCO:0.000,0.000,0.000>'
+        # 'ALARM:1'
+
+        if status.startswith("ALARM:1"):
+            # The ALARM message is followed by something like
+            # '[MSG:Reset to continue]'
+            next = self.receive()
+            raise CNCError(next, CNCStatus.ALARM)
 
         # Discard any unwanted format
         if not (status.startswith("<") and status.endswith(">")):
@@ -219,12 +247,12 @@ class CNCRouter(Stage):
 
         :param until: The expected response indicating the end of received lines.
         :return: The list of all received lines. Note that the expected line is not included in the
-         list.
+            list.
         """
         lines = []
-        while (l := self.serial.readline().strip().decode()) != until:
-            if len(l):
-                lines.append(l)
+        while (line := self.serial.readline().strip().decode()) != until:
+            if len(line):
+                lines.append(line)
         return lines
 
     def receive(self) -> str:
@@ -234,10 +262,17 @@ class CNCRouter(Stage):
 
         :return: Received response string, CR-LF removed.
         """
+        tries = 10
         # Read at least 2 bytes for CR-LF.
         response = self.serial.read(2)
         while response[-2:] != b"\r\n":
-            response += self.serial.read(1)
+            part = self.serial.read(1)
+            response += part
+            # Give a chance to get out of this
+            if part == b"":
+                tries -= 1
+            if tries == 0:
+                return ""
         # Remove CR-LF and return as string
         return response[:-2].decode()
 
@@ -274,7 +309,9 @@ class CNCRouter(Stage):
     @position.setter
     def position(self, value: Vector):
         # To check dimension and range of the given value
-        super(__class__, self.__class__).position.fset(self, value)
+        pos_setter = Stage.position.fset
+        assert pos_setter is not None
+        pos_setter(self, value)
 
         command = f"G0 X{value.x}"
         if len(value) > 1:
@@ -289,7 +326,7 @@ class CNCRouter(Stage):
         Queries the current status of the CNC in order to determine if the CNC is moving
 
         :return: True if the CNC reports that a cycle is running (Run) or
-         if it is in a middle of a homing cycle.
+            if it is in a middle of a homing cycle (Home).
         """
         while (status := self.get_current_status()) is None:
             pass
@@ -302,3 +339,14 @@ class CNCRouter(Stage):
         :return: The response of the CNC ('ok' if command has been submitted correctly).
         """
         return self.send_receive("G92 X0 Y0 Z0")
+
+    def home(self, wait=False):
+        """
+        Sends a `$H` command. The stage responds a message `[MSG:Sleeping]` after `ok`.
+        Take caution for collisions before calling this method !
+
+        :param wait: Optionally waits for move operation to be done.
+        """
+        self.send("$H")
+        if wait:
+            self.wait_move_finished()

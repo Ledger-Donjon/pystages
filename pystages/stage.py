@@ -17,8 +17,9 @@
 # Copyright 2018-2022 Ledger SAS, written by Michaël Mouchous
 
 from .vector import Vector
-from typing import Optional
+from typing import Optional, Callable
 from abc import ABC, abstractmethod
+from serial.tools.list_ports import comports
 
 
 class Stage(ABC):
@@ -29,17 +30,48 @@ class Stage(ABC):
 
     def __init__(self, num_axis=1):
         """
-        :param num_axis: The number of axis of the stage, can be updated or set after initialisation
-         of the object.
+        :param num_axis: The number of axis of the stage, can be updated or set after initialization
+            of the object.
         """
         self.num_axis = num_axis
         # The wait routine is a function that is called when the wait_move_finished is looping.
-        # It can be used to add some temporisation and/or UI updates.
-        self.wait_routine = None
+        # It can be used to add some temporization and/or UI updates.
+        self.wait_routine: Optional[Callable] = None
 
         # Minimum and maximum software limits
         self._minimums: Optional[Vector] = None
         self._maximums: Optional[Vector] = None
+
+    def find_device(
+        self,
+        pid: Optional[int] = None,
+        vid: Optional[int] = None,
+        serial_number: Optional[str] = None,
+    ) -> str:
+        """
+        Find automatically one device according to given information in parameters
+
+        :param pid: Product ID of the device. If None, not a limiting criteria.
+        :param vid: Vendor ID of the device. If None, not a limiting criterial.
+        :param serial_number: serial number of the device. If not None, the device
+            must have a serial number and matches the given value.
+        :return: The device path to the communication port.
+        """
+        possible_ports = []
+        for port in comports():
+            if serial_number is not None:
+                if port.serial_number == serial_number:
+                    possible_ports.append(port)
+                continue
+            if (port.pid, port.vid) == (pid, vid):
+                possible_ports.append(port)
+        if len(possible_ports) > 1:
+            raise RuntimeError("Multiple devices found! I don't know which one to use.")
+        elif len(possible_ports) == 1:
+            dev = possible_ports[0].device
+        else:
+            raise RuntimeError("No device found")
+        return dev
 
     @property
     @abstractmethod
@@ -151,3 +183,10 @@ class Stage(ABC):
         if value is not None:
             self.check_dimension(value)
         self._maximums = value
+
+    def home(self, wait=False):
+        """Triggers a homing command.
+
+        :param wait: Optionally waits for move operation to be done.
+        """
+        self.move_to(Vector(dim=self.num_axis), wait=wait)

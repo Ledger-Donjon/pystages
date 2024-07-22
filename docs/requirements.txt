@@ -1,0 +1,6 @@
+pyserial
+pyusb
+numpy
+sphinx
+sphinx-rtd-theme
+myst-parser

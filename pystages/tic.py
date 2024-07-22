@@ -23,6 +23,7 @@ from enum import Enum
 from time import sleep
 from .stage import Stage
 from .vector import Vector
+from .exceptions import ConnectionFailure
 
 
 class TicVariable(Enum):
@@ -73,7 +74,7 @@ class TicVariable(Enum):
     LAST_HP_DRIVER_ERRORS = (0xFF, 1, False)
 
 
-class TicCommand(Enum):
+class TicCommand(int, Enum):
     """
     Command codes for Polulu Tic Stepper Motor Controller.
     https://www.pololu.com/docs/0J71/8
@@ -107,7 +108,7 @@ class TicCommand(Enum):
     START_BOOTLOADER = 0xFF
 
 
-class TicDirection(Enum):
+class TicDirection(int, Enum):
     """Possible directions for homing"""
 
     REVERSE = 0
@@ -124,7 +125,11 @@ class Tic(Stage):
 
     def __init__(self):
         super().__init__()
-        self.dev = usb.core.find(idVendor=0x1FFB, idProduct=0x00B5)
+        dev = usb.core.find(idVendor=0x1FFB, idProduct=0x00B5)
+        if isinstance(dev, usb.core.Device):
+            self.dev = dev
+        else:
+            raise ConnectionFailure("Tic stepper motor not found.")
         self.dev.set_configuration()
         self.energize()
         self.poll_interval = 0.1
@@ -135,7 +140,7 @@ class Tic(Stage):
 
         :param command: Command.
         """
-        self.dev.ctrl_transfer(0x40, command.value, 0, 0, 0)
+        self.dev.ctrl_transfer(0x40, command, 0, 0, 0)
 
     def write_7(self, command: TicCommand, data: int):
         """
@@ -144,7 +149,7 @@ class Tic(Stage):
         :param command: Command.
         :param data: Value to be written.
         """
-        self.dev.ctrl_transfer(0x40, command.value, data, 0, 0)
+        self.dev.ctrl_transfer(0x40, command, data, 0, 0)
 
     def write_32(self, command: TicCommand, data: int):
         """
@@ -153,7 +158,7 @@ class Tic(Stage):
         :param command: Command code.
         :param data: Value to be written.
         """
-        self.dev.ctrl_transfer(0x40, command.value, data & 0xFFFF, data >> 16, 0)
+        self.dev.ctrl_transfer(0x40, command, data & 0xFFFF, data >> 16, 0)
 
     def block_read(self, command: TicCommand, offset, length) -> bytes:
         """
@@ -163,7 +168,7 @@ class Tic(Stage):
         :param offset: Data offset.
         :param length: Data length.
         """
-        return bytes(self.dev.ctrl_transfer(0xC0, command.value, 0, offset, length))
+        return bytes(self.dev.ctrl_transfer(0xC0, command, 0, offset, length))
 
     def set_setting(self, command: TicCommand, data, offset):
         """
@@ -173,7 +178,7 @@ class Tic(Stage):
         :param data: Value to be written.
         :param offset: Write offset.
         """
-        self.dev.ctrl_transfer(0x40, command.value, data, offset, 0)
+        self.dev.ctrl_transfer(0x40, command, data, offset, 0)
 
     def energize(self):
         self.quick(TicCommand.ENERGIZE)
@@ -187,6 +192,14 @@ class Tic(Stage):
     def exit_safe_start(self):
         self.quick(TicCommand.EXIT_SAFE_START)
 
+    def home(self, wait=False):
+        """Triggers a Home command.
+
+        :param wait: Optionally waits for move operation to be done."""
+        self.go_home(TicDirection.REVERSE, False)
+        if wait:
+            self.wait_move_finished()
+
     def go_home(self, direction: TicDirection, wait: bool = True):
         """
         Run the homing procedure.
@@ -194,7 +207,7 @@ class Tic(Stage):
         :param wait: If True, wait for homing procedure end.
         """
         self.exit_safe_start()
-        self.write_7(TicCommand.GO_HOME, direction.value)
+        self.write_7(TicCommand.GO_HOME, direction)
         if wait:
             while self.get_variable(TicVariable.MISC_FLAGS) & (1 << 4):
                 self.exit_safe_start()
@@ -227,7 +240,10 @@ class Tic(Stage):
     @position.setter
     def position(self, value: Vector):
         # To check dimension and range of the given value
-        super(__class__, self.__class__).position.fset(self, value)
+        pos_setter = Stage.position.fset
+        assert pos_setter is not None
+        pos_setter(self, value)
+
         self.target_position = value.x
         while self.position.x != value.x:
             sleep(self.poll_interval)

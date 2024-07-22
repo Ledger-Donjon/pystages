@@ -17,11 +17,24 @@
 # Copyright 2018-2020 Ledger SAS, written by Olivier Hériveaux
 
 
-import serial
+from typing import Optional
+import serial.serialutil
 from binascii import hexlify
 from .exceptions import ConnectionFailure, ProtocolError, VersionNotSupported
 from .stage import Stage
 from .vector import Vector
+from enum import Enum
+
+
+class M3FSCommand(Enum):
+    """
+    Command integer ID for New Scale Technologies M3-FS.
+    https://www.newscaletech.com/downloads/please-register/
+    """
+
+    READ_FIRM_VERSION = 1
+    MOVE_TO_TARGET = 8
+    VIEW_CLOSED_LOOP_STATUS_POS = 10
 
 
 class M3FS(Stage):
@@ -33,13 +46,15 @@ class M3FS(Stage):
     correct VID/DID).
     """
 
-    def __init__(self, dev, baudrate=250000):
+    def __init__(self, dev: Optional[str] = None, baudrate=250000):
         """
         Connect to the device. If the serial device cannot be opened, a
         ConnectionFailure exception is thrown. If the device version is not
         supported, a VersionNotSupported error is thrown.
 
-        :param dev: Serial device. For instance 'COM0'.
+        :param dev: Serial device. For instance `'/dev/ttyUSB0'`.
+            If not provided, a suitable device is searched according to
+            according to vendor and product IDs
         :param baudrate: Serial baudrate.
         """
         super().__init__()
@@ -55,14 +70,14 @@ class M3FS(Stage):
         # in the future...
         self.serial.timeout = 1
         try:
-            res = self.command(1)
+            res = self.command(M3FSCommand.READ_FIRM_VERSION)
         except ProtocolError as e:
             raise ConnectionFailure() from e
         self.serial.timeout = None
         if res != "1 VER 4.7.3 M3-FS":
             raise VersionNotSupported(res)
 
-    def __send(self, command, data=None):
+    def __send(self, command: M3FSCommand, data: Optional[str] = None):
         """
         Send a command to the controller.
 
@@ -71,9 +86,9 @@ class M3FS(Stage):
         """
         if data is not None:
             assert ("<" not in data) and (">" not in data) and ("\r" not in data)
-        if command not in range(100):
+        if command.value not in range(100):
             raise ValueError("Invalid command ID.")
-        full_command = "<{0:02d}".format(command)
+        full_command = "<{0:02d}".format(command.value)
         if data is not None:
             full_command += " " + data
         full_command += ">\r"
@@ -112,7 +127,7 @@ class M3FS(Stage):
             raise ProtocolError()
         return result.decode()
 
-    def command(self, command, data=None):
+    def command(self, command: M3FSCommand, data=None):
         """
         Send a command to the controller and get the response.
 
@@ -124,13 +139,17 @@ class M3FS(Stage):
         res = self.__receive()
         # Check that the command id in the response is the same as the command
         # id in the request.
-        if (len(res) < 2) or (int(res[0:2]) != command):
-            raise ProtocolError()
+        if (len(res) < 2) or (int(res[0:2]) != command.value):
+            raise ProtocolError(
+                f"Unexpected response after sending command {command}:", res
+            )
         if len(res) == 2:
             return None
         else:
             if res[2] != " ":
-                raise ProtocolError()
+                raise ProtocolError(
+                    f"Unexpected response after sending command {command}:", res
+                )
             return res[3:]
 
     def __get_closed_loop_status(self):
@@ -139,7 +158,17 @@ class M3FS(Stage):
 
         :return: Tuple of 3 int.
         """
-        res = list(bytes.fromhex(x) for x in self.command(10).split(" "))
+        command = M3FSCommand.VIEW_CLOSED_LOOP_STATUS_POS
+        res = self.command(command)
+        if res is None:
+            raise ProtocolError(
+                f"Unexpected response after sending command {command}: Got response without data."
+            )
+        res = list(bytes.fromhex(x) for x in res.split(" "))
+        if len(res) != 3:
+            raise ProtocolError(
+                f"Unexpected response after sending command {command}: Expecting 3 values, got {res}."
+            )
         motor_status = int.from_bytes(res[0], "big", signed=False)
         position = int.from_bytes(res[1], "big", signed=True)
         error = int.from_bytes(res[2], "big", signed=True)
@@ -153,16 +182,18 @@ class M3FS(Stage):
         :getter: Query and return current stage position.
         :setter: Move stage. Wait until position is reached.
         """
-        motor_status, position, error = self.__get_closed_loop_status()
+        _, position, _ = self.__get_closed_loop_status()
         return Vector(position * self.resolution_um)
 
     @position.setter
     def position(self, value: Vector):
         # To check dimension and range of the given value
-        super(__class__, self.__class__).position.fset(self, value)
+        pos_setter = Stage.position.fset
+        assert pos_setter is not None
+        pos_setter(self, value)
 
         val = round(value.x / self.resolution_um).to_bytes(4, "big", signed=True)
-        self.command(8, hexlify(val).decode())
+        self.command(M3FSCommand.MOVE_TO_TARGET, hexlify(val).decode())
         # Now wait until motor is not moving anymore
         while self.is_moving:
             pass
