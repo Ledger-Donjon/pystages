@@ -21,7 +21,7 @@ import unittest
 from typing import Union
 
 
-class Vector(object):
+class Vector:
     """
     Some basic vector manipulation class for stages control.
     """
