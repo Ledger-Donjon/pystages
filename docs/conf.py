@@ -25,7 +25,7 @@ copyright = "2024, Olivier Hériveaux, Manuel San Pedro, Michaël Mouchous"
 author = "Olivier Hériveaux, Manuel San Pedro, Michaël Mouchous"
 
 # The full version, including alpha/beta/rc tags
-release = "1.2b"
+release = "1.2"
 
 
 # -- General configuration ---------------------------------------------------
