@@ -14,7 +14,7 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 #
 # Values and descriptions of commands and error codes has been taken from GRBL Github repository
-# https://github.com/grbl/grbl
+# https://github.com/gnea/grbl
 # and the instruction manual of the CNC 3018 PRO
 # https://drive.google.com/file/d/1yQH9gtO8lWbE-K0dff8g9zq_1xOB57x7
 #
@@ -159,7 +159,7 @@ class CNCRouter(Stage):
         Set the GRBL setting of the Router with given value. The value type must correspond to
         type defined in :py:class:`GRBLSetting`.
         """
-        if setting.type != type(value):
+        if not isinstance(setting.type, type(value)):
             ValueError(f"The setting {setting} expects a value of type {setting.type}.")
         if isinstance(value, (InvertMask, StatusReportMask)):
             # Get the int value of the flag
@@ -182,7 +182,7 @@ class CNCRouter(Stage):
         for line in lines:
             key, value = line.split("=", 1)
             setting = GRBLSetting(key)
-            if setting.type == float:
+            if setting.type is float:
                 value = float(value)
                 settings[setting] = value
             else:
