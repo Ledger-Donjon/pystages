@@ -44,12 +44,31 @@ class CNCStatus(str, Enum):
     CHECK = "Check"
 
 
+class CNCAlarmCode(int, Enum):
+    """
+    Possible alarm codes from GRBL
+    """
+
+    HARD_LIMIT = 1
+    SOFT_LIMIT = 2
+    ABORT_CYCLE = 3
+    PROBE_FAIL = 4
+    PROBE_FAIL_2 = 5
+    HOMING_FAIL = 6
+    HOMING_FAIL_2 = 7
+    HOMING_FAIL_3 = 8
+    HOMING_FAIL_4 = 9
+
+
 class CNCError(Exception):
     """Exception raised when a specific error is detected by the CNC"""
 
-    def __init__(self, message: str, cncstatus: CNCStatus):
+    def __init__(
+        self, message: str, cncstatus: CNCStatus, code: Optional[CNCAlarmCode] = None
+    ):
         super().__init__(message)
         self.cncstatus = cncstatus
+        self.code = code
 
 
 class CNCRouter(Stage):
@@ -197,9 +216,8 @@ class CNCRouter(Stage):
         if status is None:
             return None
 
-        # The possible outputs
+        # Possible outputs
         # '<Idle|MPos:1.000,3.000,4.000|FS:0,0|WCO:0.000,0.000,0.000>'
-        # 'ALARM:1'
 
         if status.startswith("ALARM:1"):
             # The ALARM message is followed by something like
@@ -274,7 +292,15 @@ class CNCRouter(Stage):
             if tries == 0:
                 return ""
         # Remove CR-LF and return as string
-        return response[:-2].decode()
+        response = response[:-2].decode()
+
+        if response.startswith("ALARM:"):
+            # The ALARM:X message is followed by something like
+            # '[MSG:Reset to continue]'
+            next = self.receive()
+            raise CNCError(next, CNCStatus.ALARM, code=CNCAlarmCode(int(response[6:])))
+
+        return response
 
     def send_receive(self, command: str) -> str:
         """
