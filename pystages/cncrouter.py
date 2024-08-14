@@ -354,8 +354,12 @@ class CNCRouter(Stage):
         :return: True if the CNC reports that a cycle is running (Run) or
             if it is in a middle of a homing cycle (Home).
         """
-        while (status := self.get_current_status()) is None:
-            pass
+        tries = 3
+        while (status := self.get_current_status()) is None and tries > 0:
+            tries -= 1
+        if status is None:
+            # In order to prevent to be blocking in case of no response, we return raise an exception
+            raise TimeoutError("No response from CNC")
         return status[0] in [CNCStatus.RUN, CNCStatus.HOME]
 
     def set_origin(self) -> str:
