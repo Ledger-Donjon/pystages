@@ -238,12 +238,6 @@ class CNCRouter(Stage):
         # Possible outputs
         # '<Idle|MPos:1.000,3.000,4.000|FS:0,0|WCO:0.000,0.000,0.000>'
 
-        if status.startswith("ALARM:1"):
-            # The ALARM message is followed by something like
-            # '[MSG:Reset to continue]'
-            next = self.receive()
-            raise CNCError(next, CNCStatus.ALARM)
-
         # Discard any unwanted format
         if not (status.startswith("<") and status.endswith(">")):
             print(f"Response to '?' is unexpected: {status}")
