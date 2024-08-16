@@ -28,6 +28,7 @@ from .vector import Vector
 from enum import Enum
 from .grbl import GRBLSetting, InvertMask, StatusReportMask
 from .stage import Stage
+import re
 
 
 class CNCStatus(str, Enum):
@@ -116,6 +117,24 @@ class CNCRouter(Stage):
         ok = responses[0].startswith("Grbl") and responses[0].endswith("['$' for help]")
         if not ok:
             return False
+
+        # Parse the GRBL version
+        grbl_match = re.match(
+            r"(?P<major>\d+).(?P<minor>\d+)(?P<patch>\w*)", responses[0].split(" ")[1]
+        )
+
+        if grbl_match is None:
+            return False
+
+        grp = grbl_match.groupdict()
+        self.grbl_version = {
+            "major": int(grp["major"]),
+            "minor": int(grp["minor"]),
+            "patch": grp["patch"],
+        }
+        if self.grbl_version["major"] < 1:
+            print(f"This version of GRBL {grbl_match.groups()[0]} is not supported.")
+
         # Unlock if necessary
         if "[MSG:'$H'|'$X' to unlock]" in responses:
             ok = self.unlock()
@@ -138,7 +157,7 @@ class CNCRouter(Stage):
     def unlock(self) -> bool:
         """
         Unlock the motor. It may happen when the stage has gone further its limits,
-        and raised an alarm, or has been disabled when going in sleep mode (`$SLP`)
+            and raised an alarm, or has been disabled when going in sleep mode (`$SLP`)
 
         :return: `True` if message `[MSG:Caution: Unlock]` has been returned
         """
