@@ -47,7 +47,8 @@ class StageWindow(QWidget):
             elif selected == StageType.Corvus:
                 self.stage = Corvus(dev)
             elif selected == StageType.SMC:
-                self.stage = SMC100(dev, [1, 2])
+                axis = [int(x) for x in self.lineedit_smc100_axis.text().split(",")]
+                self.stage = SMC100(dev, axis)
             elif selected == StageType.M3FS:
                 self.stage = M3FS(dev, baudrate=115200)
             self.position_timer.start(100)
@@ -60,6 +61,7 @@ class StageWindow(QWidget):
 
         self.stage_selection.setDisabled(on_off)
         self.port_selection.setDisabled(on_off)
+        self.lineedit_smc100_axis.setDisabled(on_off)
 
         self.set_controls_enabled(on_off)
 
@@ -88,6 +90,7 @@ class StageWindow(QWidget):
         box.addWidget(w)
         self.stage_selection = w = QComboBox()
         w.addItems([StageType.CNC, StageType.Corvus, StageType.SMC, StageType.M3FS])
+        w.currentIndexChanged.connect(self.update_stage_options)
         box.addWidget(w)
         self.port_selection = w = QComboBox()
         w.addItem("Auto detection", None)
@@ -105,6 +108,17 @@ class StageWindow(QWidget):
         w.setCheckable(True)
         w.clicked.connect(self.connect)
         box.addWidget(w)
+
+        # SMC100 options
+        hbox_widget = self.widget_smc100 = QWidget()
+        hbox = QHBoxLayout()
+        hbox.setContentsMargins(0, 0, 0, 0)
+        hbox_widget.setLayout(hbox)
+        vbox.addWidget(hbox_widget)
+        hbox.addWidget(QLabel("SMC100 Axis"))
+        self.lineedit_smc100_axis = w = QLineEdit("1, 2")
+        hbox.addWidget(w)
+        self.widget_smc100.hide()
 
         box = QHBoxLayout()
         vbox.addLayout(box)
@@ -239,3 +253,7 @@ class StageWindow(QWidget):
         pos.y = y
         pos.z = z
         self.stage.move_to(pos)
+
+    def update_stage_options(self, index):
+        model = self.stage_selection.currentText()
+        self.widget_smc100.setVisible(model == StageType.SMC)
