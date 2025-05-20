@@ -61,7 +61,7 @@ class M3FS(Stage):
         self.resolution_um = 0.5
         try:
             self.serial = serial.Serial(
-                dev, baudrate=baudrate, stopbits=serial.STOPBITS_TWO
+                dev, baudrate=baudrate, stopbits=serial.STOPBITS_ONE
             )
         except serial.serialutil.SerialException as e:
             raise ConnectionFailure() from e

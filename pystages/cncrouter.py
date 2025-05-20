@@ -110,9 +110,18 @@ class CNCRouter(Stage):
         self.serial.flush()
         self.send("\030", eol="")
         time.sleep(wait_time)
-        self.send("")
 
+        # Sending an empty string to get a "ok"
+        self.send("")
         responses = self.receive_lines()
+
+        # Give another try if no response
+        if len(responses) == 0:
+            time.sleep(wait_time)
+            # Sending an empty string to get a "ok"
+            self.send("")
+            responses = self.receive_lines()
+
         # Expected ATR is 'Grbl x.xx ['$' for help]' for first line.
         ok = responses[0].startswith("Grbl") and responses[0].endswith("['$' for help]")
         if not ok:
