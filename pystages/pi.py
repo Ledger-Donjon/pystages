@@ -171,7 +171,7 @@ class PI(Stage):
         """
         for address in self.addresses:
             self.serial.write(f"{address} SVO 1 1\n".encode("utf-8"))
-            self.serial.write(f"{address} {"FNL" if negative_limit else "FPL"} 1\n".encode("utf-8"))
+            self.serial.write(f"{address} {'FNL' if negative_limit else 'FPL'} 1\n".encode("utf-8"))
         
     def is_reference_needed(self) -> bool:
         """
