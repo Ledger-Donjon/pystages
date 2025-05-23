@@ -17,19 +17,24 @@
 
 import serial.serialutil
 import time
-from typing import Optional, Tuple, List, Union
+from typing import Optional, List
 from .exceptions import ConnectionFailure
 from .vector import Vector
-from enum import Enum
 from .stage import Stage
 from .pi_errors import PIError
+
 
 class PI(Stage):
     """
     Class to control PI stages.
     """
 
-    def __init__(self, dev: Optional[str] = None, baudrate: int = 115200, addresses: List[int] = [1]) -> None:
+    def __init__(
+        self,
+        dev: Optional[str] = None,
+        baudrate: int = 115200,
+        addresses: List[int] = [1],
+    ) -> None:
         """
         Initialize the PI stage.
 
@@ -50,9 +55,10 @@ class PI(Stage):
             raise ConnectionFailure() from e
         print("Connected to PI stage at", dev)
         self._idns = self.idn()
-        
 
-    def query(self, command: str, address: Optional[int] = None, args=None) -> List[str]:
+    def query(
+        self, command: str, address: Optional[int] = None, args=None
+    ) -> List[str]:
         """
         Send a command to the stage and return the response.
 
@@ -60,7 +66,7 @@ class PI(Stage):
         :param command: The command to send.
         :return: The response from the stage.
         """
-        cmd = f"{address} " if address is not None else "" 
+        cmd = f"{address} " if address is not None else ""
         cmd += f"{command}?"
         cmd += " " + " ".join(args) if args else ""
         cmd += "\n"
@@ -71,7 +77,13 @@ class PI(Stage):
             _response = self.serial.readline().decode("utf-8").strip()
             print("<", repr(_response))
             response = _response.split(" ", 2)
-            assert len(response) == 3 and int(response[0]) == 0 and int(response[1]) == address, f"Unexpected format of response: '{_response}'. We expect a pattern of 3 elements '0 {address} PAYLOAD'."
+            e = f"Unexpected format of response: '{_response}', expecting '0 {address} PAYLOAD'."
+            assert (
+                len(response) == 3
+                and int(response[0]) == 0
+                and int(response[1]) == address
+            ), e
+
             payload: str = response[2].strip()
             responses.append(payload)
             if not payload.endswith(" \n"):
@@ -88,7 +100,7 @@ class PI(Stage):
         for address in self.addresses:
             results += self.query("*IDN", address)
         return results
-    
+
     @property
     def position(self) -> Vector:
         """
@@ -117,8 +129,7 @@ class PI(Stage):
                 break
             address = self.addresses[i]
             self.move(address, pos)
-    
-    
+
     def move(self, address: int, position: float) -> None:
         """
         Move the stage to the specified position.
@@ -129,7 +140,6 @@ class PI(Stage):
         cmd = f"{address} MOV 1 {position}\n"
         print("Move command:", cmd)
         self.serial.write(cmd.encode("utf-8"))
-
 
     @property
     def is_moving(self) -> bool:
@@ -149,7 +159,6 @@ class PI(Stage):
                 return True
         return False
 
-
     def reference_method(self):
         """
         Get the reference methods
@@ -162,8 +171,7 @@ class PI(Stage):
             reference_method = self.query("RON", address)[0].split("=")[1]
             print(f"{reference_method=}")
 
-
-    def fast_reference(self, negative_limit = True):
+    def fast_reference(self, negative_limit=True):
         """
         Perform a fast reference move.
 
@@ -171,12 +179,14 @@ class PI(Stage):
         """
         for address in self.addresses:
             self.serial.write(f"{address} SVO 1 1\n".encode("utf-8"))
-            self.serial.write(f"{address} {'FNL' if negative_limit else 'FPL'} 1\n".encode("utf-8"))
-        
+            self.serial.write(
+                f"{address} {'FNL' if negative_limit else 'FPL'} 1\n".encode("utf-8")
+            )
+
     def is_reference_needed(self) -> bool:
         """
         Check if a reference move is needed for at lease one axis.
-        
+
         :return: True if a reference move is needed, False otherwise.
         """
         for address in self.addresses:
@@ -185,7 +195,7 @@ class PI(Stage):
             if not self.query("FRF", address)[0].split("=")[1] == "1":
                 return True
         return False
-    
+
     def home(self, wait=False):
         """
         Move the stage to the home position (make a reference to low limit).

@@ -94,7 +94,15 @@ class StageWindow(QWidget):
         w = QLabel("Stage Selection")
         box.addWidget(w)
         self.stage_selection = w = QComboBox()
-        w.addItems([StageType.CNC, StageType.Corvus, StageType.M3FS, StageType.PI, StageType.SMC])
+        w.addItems(
+            [
+                StageType.CNC,
+                StageType.Corvus,
+                StageType.M3FS,
+                StageType.PI,
+                StageType.SMC,
+            ]
+        )
         w.currentIndexChanged.connect(self.update_stage_options)
         box.addWidget(w)
         self.port_selection = w = QComboBox()
