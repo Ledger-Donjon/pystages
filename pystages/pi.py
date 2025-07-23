@@ -87,12 +87,11 @@ class PI(Stage):
             _response = self.serial.readline().decode("utf-8").strip()
             # print("<", repr(_response))
             response = _response.split(" ", 2)
-            e = f"Unexpected format of response: '{_response}', expecting '0 {address} PAYLOAD'."
             assert (
                 len(response) == 3
                 and int(response[0]) == 0
                 and int(response[1]) == address
-            ), e
+            ), f"Unexpected format of response: '{_response}', expecting '0 {address} PAYLOAD'."
 
             payload: str = response[2].strip()
             responses.append(payload)
