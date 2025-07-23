@@ -8,5 +8,5 @@ pystages.pi
     :members:
 
 .. autoclass:: PIError
-    :special-members: __init__
-    :members:
+
+.. autoclass:: PIReferencingMethod
