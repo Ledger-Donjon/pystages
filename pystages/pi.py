@@ -17,11 +17,21 @@
 
 import serial.serialutil
 import time
-from typing import Optional, List
+from typing import Optional, List, Union
 from .exceptions import ConnectionFailure
 from .vector import Vector
 from .stage import Stage
 from .pi_errors import PIError
+from enum import Enum
+
+
+class PIReferencingMethod(int, Enum):
+    """
+    Enum for PI reference methods.
+    """
+
+    POS_ALLOWED = 0  # An absolute position value can be assigned with POS, or a referencing move can be started with FRF, FNL or FPL.
+    REFERENCING_ONLY = 1  # A referencing move must be started with FRF, FNL or FPL. Using POS is not allowed.
 
 
 class PI(Stage):
@@ -53,7 +63,7 @@ class PI(Stage):
             self.serial = serial.Serial(dev, baudrate=baudrate, timeout=1)
         except serial.serialutil.SerialException as e:
             raise ConnectionFailure() from e
-        print("Connected to PI stage at", dev)
+        # print("Connected to PI stage at", dev)
         self._idns = self.idn()
 
     def query(
@@ -70,12 +80,12 @@ class PI(Stage):
         cmd += f"{command}?"
         cmd += " " + " ".join(args) if args else ""
         cmd += "\n"
-        print(">", cmd.strip())
+        # print(">", cmd.strip())
         self.serial.write(cmd.encode("utf-8"))
         responses = []
         while True:
             _response = self.serial.readline().decode("utf-8").strip()
-            print("<", repr(_response))
+            # print("<", repr(_response))
             response = _response.split(" ", 2)
             e = f"Unexpected format of response: '{_response}', expecting '0 {address} PAYLOAD'."
             assert (
@@ -138,7 +148,7 @@ class PI(Stage):
         :param position: The position to move to.
         """
         cmd = f"{address} MOV 1 {position}\n"
-        print("Move command:", cmd)
+        # print("Move command:", cmd)
         self.serial.write(cmd.encode("utf-8"))
 
     @property
@@ -159,17 +169,42 @@ class PI(Stage):
                 return True
         return False
 
-    def reference_method(self):
+    @property
+    def reference_methods(self):
         """
-        Get the reference methods
+        Get the reference methods.
 
-        :param address: The address of the stage.
+             0: An absolute position value can be assigned with POS,
+                or a referencing move can be started with FRF, FNL or FPL.
+             1 (default): A referencing move must be started with FRF, FNL or FPL.
+                Using POS is not allowed.
         """
+        reference_methods: List[PIReferencingMethod] = []
         for address in self.addresses:
-            # 1 = Referencing has been done
-            # 0 = Referencing has not been done
-            reference_method = self.query("RON", address)[0].split("=")[1]
-            print(f"{reference_method=}")
+            # 0: An absolute position value can be assigned with POS,
+            #    or a referencing move can be started with FRF, FNL or FPL.
+            # 1 (default): A referencing move must be started with FRF, FNL or FPL.
+            #    Using POS is not allowed.
+            reference_method: str = self.query("RON", address)[0].split("=")[1]
+            reference_methods.append(PIReferencingMethod(int(reference_method)))
+            # print(f"For device at {address}: {reference_method=}")
+        return reference_methods
+
+    @reference_methods.setter
+    def reference_methods(
+        self, value: Union[List[PIReferencingMethod], PIReferencingMethod]
+    ):
+        """
+        Set the reference methods.
+
+        :param value: A list of PIReferencingMethod.
+        """
+        if isinstance(value, PIReferencingMethod):
+            value = [value] * len(self.addresses)
+
+        for address, method in zip(self.addresses, value):
+            self.serial.write(f"{address} RON 1 {method.value}\n".encode("utf-8"))
+            # print(f"Set reference method for device at {address}: {method.value=}")
 
     def fast_reference(self, negative_limit=True):
         """
