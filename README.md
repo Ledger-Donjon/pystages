@@ -13,6 +13,7 @@ are implemented):
 - Newport SMC100 motion controllers
 - Tic Stepper Motor controller (USB only)
 - CNC Router with GRBL/GCode instructions (CNC 3018-PRO)
+- PI Stages driven with Mercury Controller
 
 The library also provides helper classes for basic vector manipulation and
 autofocus computation.

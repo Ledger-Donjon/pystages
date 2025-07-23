@@ -13,6 +13,8 @@ features are implemented):
 - New Scale M3-FS Focus Module (:class:`pystages.m3fs.M3FS`)
 - CNC Router, controlled with GRBL/GCode instructions (CNC 3018-PRO)
   (:class:`pystages.cncrouter.CNCRouter`)
+- PI Stages driven with Mercury Controller
+  (:class:`pystages.pi.PI`)
 
 The library also provides helper classes for basic vector manipulation
 (:class:`pystages.Vector`) and autofocus calculation
