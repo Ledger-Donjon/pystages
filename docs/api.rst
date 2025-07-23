@@ -10,6 +10,7 @@ Submodules
     api_smc100.rst
     api_tic.rst
     api_cnc.rst
+    api_pi.rst
 
 Classes
 -------
