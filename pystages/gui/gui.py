@@ -53,7 +53,7 @@ class StageWindow(QWidget):
                 self.stage = SMC100(dev, axis)
             elif selected == StageType.M3FS:
                 self.stage = M3FS(dev, baudrate=115200)
-            if selected == StageType.PI:
+            elif selected == StageType.PI:
                 axis = [int(x) for x in self.lineedit_axis.text().split(",")]
                 self.stage = PI(dev, addresses=axis)
             self.position_timer.start(100)

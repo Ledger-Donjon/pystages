@@ -38,6 +38,7 @@ def test_fast_reference():
     print(f"{pi.is_moving=}")
     while pi.is_moving:
         print(f"Waiting for fast reference to finish... ({pi.position})")
+        time.sleep(0.1)
     print("Fast reference finished.")
 
     pi.fast_reference()
@@ -46,6 +47,7 @@ def test_fast_reference():
     print(f"{pi.is_moving=}")
     while pi.is_moving:
         print(f"Waiting for fast reference to finish... ({pi.position})")
+        time.sleep(0.1)
     print("Fast reference finished.")
 
 
@@ -83,6 +85,7 @@ def test_move():
     print(f"Errors:{rt}{rt.join(str(e) for e in pi.error())}")
     while pi.is_moving:
         print(f"Waiting for move to {position} to finish... ({pi.position})")
+        time.sleep(0.1)
     print(f"Move to {position} finished: {pi.position}")
 
 

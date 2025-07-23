@@ -220,7 +220,7 @@ class PI(Stage):
 
     def is_reference_needed(self) -> bool:
         """
-        Check if a reference move is needed for at lease one axis.
+        Check if a reference move is needed for at least one axis.
 
         :return: True if a reference move is needed, False otherwise.
         """
