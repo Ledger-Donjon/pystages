@@ -84,7 +84,9 @@ class PI(Stage):
         try:
             self.serial.write(cmd.encode("utf-8"))
         except serial.serialutil.SerialException as e:
-            raise ConnectionFailure(f"Failed to write command '{cmd.strip()}' to the serial device.") from e
+            raise ConnectionFailure(
+                f"Failed to write command '{cmd.strip()}' to the serial device."
+            ) from e
         responses = []
         while True:
             _response = self.serial.readline().decode("utf-8").strip()
@@ -94,7 +96,9 @@ class PI(Stage):
                 len(response) == 3
                 and int(response[0]) == 0
                 and int(response[1]) == address
-            ), f"Unexpected format of response: '{_response}', expecting '0 {address} PAYLOAD'."
+            ), (
+                f"Unexpected format of response: '{_response}', expecting '0 {address} PAYLOAD'."
+            )
 
             payload: str = response[2].strip()
             responses.append(payload)
