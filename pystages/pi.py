@@ -81,7 +81,10 @@ class PI(Stage):
         cmd += " " + " ".join(args) if args else ""
         cmd += "\n"
         # print(">", cmd.strip())
-        self.serial.write(cmd.encode("utf-8"))
+        try:
+            self.serial.write(cmd.encode("utf-8"))
+        except serial.serialutil.SerialException as e:
+            raise ConnectionFailure(f"Failed to write command '{cmd.strip()}' to the serial device.") from e
         responses = []
         while True:
             _response = self.serial.readline().decode("utf-8").strip()
