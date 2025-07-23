@@ -1,4 +1,4 @@
-from pystages.pi import PI
+from pystages.pi import PI, PIReferencingMethod
 from pystages.pi_errors import PIError
 from pystages import Vector
 import time
@@ -88,7 +88,14 @@ def test_move():
 
 def test_reference_method():
     pi = PI(dev="/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
-    pi.reference_method()
+    print("\n" + "\n".join(m.name for m in pi.reference_methods))
+
+
+def test_set_reference_method():
+    pi = PI(dev="/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
+    pi.reference_methods = PIReferencingMethod.POS_ALLOWED
+    print("Reference methods set to:", pi.reference_methods)
+    assert all(m == PIReferencingMethod.POS_ALLOWED for m in pi.reference_methods)
 
 
 def test_error():
