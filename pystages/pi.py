@@ -96,7 +96,9 @@ class PI(Stage):
                 len(response) == 3
                 and int(response[0]) == 0
                 and int(response[1]) == address
-            ), f"Unexpected format of response: '{_response}', expecting '0 {address} PAYLOAD'."
+            ), (
+                f"Unexpected format of response: '{_response}', expecting '0 {address} PAYLOAD'."
+            )
 
             payload: str = response[2].strip()
             responses.append(payload)
@@ -267,3 +269,10 @@ class PI(Stage):
             assert len(response) == 1
             errors.append(PIError(int(response[0])))
         return errors
+
+    def set_origin(self):
+        """
+        Set current stage's coordinates as the new origin.
+        """
+        for address in self.addresses:
+            self.serial.write(f"{address} POS 1 0\n".encode("utf-8"))
