@@ -23,7 +23,7 @@ import time
 from .vector import Vector
 from .exceptions import ProtocolError, ConnectionFailure
 from enum import Enum, Flag
-from typing import Optional, List, Union
+from typing import Optional, List, Union, cast
 from .stage import Stage
 
 
@@ -181,13 +181,10 @@ class ErrorAndState:
         """
         :return: True if state is not one of the NOT_REFERENCED_x states.
         """
-        if self.state is None:
-            raise RuntimeError("state not available")
-        else:
-            return not (
-                (self.state >= State.NOT_REFERENCED_FROM_RESET)
-                and (self.state <= State.NOT_REFERENCED_FROM_JOGGING)
-            )
+        return not (
+            (self.state >= State.NOT_REFERENCED_FROM_RESET)
+            and (self.state <= State.NOT_REFERENCED_FROM_JOGGING)
+        )
 
     @property
     def is_ready(self) -> bool:
@@ -231,8 +228,6 @@ class SMC100(Stage):
         :param dev: Serial device string (for instance `'/dev/ttyUSB0'` or
             'COM0'), an instance of Link, or an instance of SMC100 sharing
             the same serial device.
-            If not provided, a suitable device is searched according to
-            according to vendor and product IDs
         :param addresses: An iterable of int controller addresses.
         """
         super().__init__(num_axis=len(addresses))
@@ -279,12 +274,13 @@ class SMC100(Stage):
 
         # Enable the motors
         self.is_disabled = False
-        commands = []
-        for position, addr in zip(value.data, self.addresses):
+        commands: List[str] = []
+        coords: List[float] = [float(v) for v in cast(List[float], value.data)]
+        for position, addr in zip(coords, self.addresses):
             commands.append(f"{addr}PA{position:.5f}")
         self.link.send(None, "\r\n".join(commands))
 
-    def home(self, wait=False):
+    def home(self, wait: bool = False):
         """
         Perform home search.
 
@@ -335,7 +331,7 @@ class SMC100(Stage):
         """Enter configuration state."""
         self.link.send(addr, "PW1")
 
-    def leave_configuration_state(self, addr):
+    def leave_configuration_state(self, addr: int):
         """
         Leave configuration state. If defined parameters are valid, the
         controller saves them in the flash memory.
@@ -389,7 +385,7 @@ class SMC100(Stage):
         for addr in self.addresses if addr is None else [addr]:
             self.link.send(addr, "RS")
 
-    def set_position(self, addr: int, value: float, blocking=True):
+    def set_position(self, addr: int, value: float, blocking: bool = True):
         """
         Sets the position of a single axis
 
