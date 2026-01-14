@@ -97,7 +97,8 @@ class PI(Stage):
                 and int(response[0]) == 0
                 and int(response[1]) == address
             ), (
-                f"Unexpected format of response: '{_response}', expecting '0 {address} PAYLOAD'."
+                f"Unexpected format of response: '{_response}',"
+                f" expecting '0 {address} PAYLOAD'."
             )
 
             payload: str = response[2].strip()
