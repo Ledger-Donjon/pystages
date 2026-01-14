@@ -276,4 +276,13 @@ class PI(Stage):
         Set current stage's coordinates as the new origin.
         """
         for address in self.addresses:
-            self.serial.write(f"{address} POS 1 0\n".encode("utf-8"))
+            try:
+                response = self.query("POS 1 0", address)
+            except serial.serialutil.SerialException as exc:
+                raise ConnectionFailure(
+                    f"Failed to set origin for device at address {address}"
+                ) from exc
+            if not response:
+                raise ConnectionFailure(
+                    f"No response received when setting origin for device at address {address}"
+                )
