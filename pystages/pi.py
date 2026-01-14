@@ -67,7 +67,7 @@ class PI(Stage):
         self._idns = self.idn()
 
     def query(
-        self, command: str, address: Optional[int] = None, args=None
+        self, command: str, address: Optional[int] = None, args: Optional[List[str]] = None
     ) -> List[str]:
         """
         Send a command to the stage and return the response.
@@ -87,7 +87,7 @@ class PI(Stage):
             raise ConnectionFailure(
                 f"Failed to write command '{cmd.strip()}' to the serial device."
             ) from e
-        responses = []
+        responses: List[str] = []
         while True:
             _response = self.serial.readline().decode("utf-8").strip()
             # print("<", repr(_response))
@@ -101,8 +101,8 @@ class PI(Stage):
                 f" expecting '0 {address} PAYLOAD'."
             )
 
-            payload: str = response[2].strip()
-            responses.append(payload)
+            payload: str = response[2]
+            responses.append(payload.strip())
             if not payload.endswith(" \n"):
                 break
         return responses
@@ -113,7 +113,7 @@ class PI(Stage):
 
         :return: The ID of the stage.
         """
-        results = []
+        results: List[str] = []
         for address in self.addresses:
             results += self.query("*IDN", address)
         return results
@@ -125,7 +125,7 @@ class PI(Stage):
 
         :return: The position of the stage.
         """
-        positions = []
+        positions: List[float] = []
         for a in self.addresses:
             response = self.query("POS", a)[0]
             response = response.split("=")
@@ -141,7 +141,7 @@ class PI(Stage):
         assert pos_setter is not None
         pos_setter(self, value)
 
-        for i, pos in enumerate(value.data):
+        for i, pos in enumerate[float](value.data):
             if i >= len(self.addresses):
                 break
             address = self.addresses[i]
@@ -213,7 +213,7 @@ class PI(Stage):
             self.serial.write(f"{address} RON 1 {method.value}\n".encode("utf-8"))
             # print(f"Set reference method for device at {address}: {method.value=}")
 
-    def fast_reference(self, negative_limit=True):
+    def fast_reference(self, negative_limit: bool = True):
         """
         Perform a fast reference move.
 
@@ -238,7 +238,7 @@ class PI(Stage):
                 return True
         return False
 
-    def home(self, wait=False):
+    def home(self, wait: bool = False):
         """
         Move the stage to the home position (make a reference to low limit).
 
@@ -264,7 +264,7 @@ class PI(Stage):
 
         :return: The error status of the stage.
         """
-        errors = []
+        errors: List[PIError] = []
         for address in self.addresses:
             response = self.query("ERR", address)
             assert len(response) == 1
