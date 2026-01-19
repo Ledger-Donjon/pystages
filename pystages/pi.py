@@ -74,6 +74,22 @@ class PI(Stage):
         self.logger.debug(f"> {cmd.strip()}")
         self.serial.write(cmd.encode("utf-8"))
 
+    def fast_query(self, address: int, command: int) -> str:
+        """
+        Single-character commands, e.g., fast query commands, consist only of one ASCII
+        character.
+
+        :param address: The address of the stage.
+        :param command: The command to send.
+        :return: The response from the stage.
+        """
+        command_str = chr(command)
+        self.logger.debug(f"> {address} #{command}")
+        self.serial.write(f"{address} {command_str}".encode("utf-8"))
+        response = self.serial.readline().decode("utf-8").strip()
+        self.logger.debug(f"< {response}")
+        return response
+
     def query(
         self, command: str, address: Optional[int] = None, args: Optional[List[str]] = None
     ) -> List[str]:
@@ -173,8 +189,9 @@ class PI(Stage):
         :return: True if the stage is moving, False otherwise.
         """
         for address in self.addresses:
-            self.serial.write(f"{address} \x05".encode("utf-8"))
-            response = self.serial.readline().decode("utf-8").strip().split(" ", 2)
+            #self.serial.write(f"{address} \x05".encode("utf-8"))
+            #response = self.serial.readline().decode("utf-8").strip().split(" ", 2)
+            response = self.fast_query(address, 0x05).split(" ", 2)
             assert len(response) == 3
             assert int(response[0]) == 0
             assert int(response[1]) == address
