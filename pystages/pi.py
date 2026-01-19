@@ -17,13 +17,12 @@
 
 import serial.serialutil
 import time
+from enum import Enum
 from typing import Optional, List, Union
 from .exceptions import ConnectionFailure
 from .vector import Vector
 from .stage import Stage
 from .pi_errors import PIError
-from enum import Enum
-
 
 class PIReferencingMethod(int, Enum):
     """
@@ -63,8 +62,17 @@ class PI(Stage):
             self.serial = serial.Serial(dev, baudrate=baudrate, timeout=1)
         except serial.serialutil.SerialException as e:
             raise ConnectionFailure() from e
-        # print("Connected to PI stage at", dev)
+        self.logger.debug(f"Connected to PI stage at {dev=}")
         self._idns = self.idn()
+
+    def send(self, address: Optional[int], command: str):
+        """
+        Send a command to the stage.
+        """
+        cmd = f"{address} " if address is not None else ""
+        cmd += f"{command}\n"
+        self.logger.debug(f"> {cmd.strip()}")
+        self.serial.write(cmd.encode("utf-8"))
 
     def query(
         self, command: str, address: Optional[int] = None, args: Optional[List[str]] = None
@@ -80,7 +88,7 @@ class PI(Stage):
         cmd += f"{command}?"
         cmd += " " + " ".join(args) if args else ""
         cmd += "\n"
-        # print(">", cmd.strip())
+        self.logger.debug(f"> {cmd.strip()}")
         try:
             self.serial.write(cmd.encode("utf-8"))
         except serial.serialutil.SerialException as e:
@@ -90,7 +98,7 @@ class PI(Stage):
         responses: List[str] = []
         while True:
             _response = self.serial.readline().decode("utf-8").strip()
-            # print("<", repr(_response))
+            self.logger.debug(f"< {_response}")
             response = _response.split(" ", 2)
             assert (
                 len(response) == 3
@@ -154,9 +162,7 @@ class PI(Stage):
         :param address: The address of the stage.
         :param position: The position to move to.
         """
-        cmd = f"{address} MOV 1 {position}\n"
-        # print("Move command:", cmd)
-        self.serial.write(cmd.encode("utf-8"))
+        self.send(address, f"MOV 1 {position}")
 
     @property
     def is_moving(self) -> bool:
@@ -194,7 +200,7 @@ class PI(Stage):
             #    Using POS is not allowed.
             reference_method: str = self.query("RON", address)[0].split("=")[1]
             reference_methods.append(PIReferencingMethod(int(reference_method)))
-            # print(f"For device at {address}: {reference_method=}")
+            self.logger.debug(f"For device at {address}: {reference_method=}")
         return reference_methods
 
     @reference_methods.setter
@@ -210,20 +216,25 @@ class PI(Stage):
             value = [value] * len(self.addresses)
 
         for address, method in zip(self.addresses, value):
-            self.serial.write(f"{address} RON 1 {method.value}\n".encode("utf-8"))
-            # print(f"Set reference method for device at {address}: {method.value=}")
+            self.send(address, f"RON 1 {method.value}")
+            self.logger.debug(f"Set reference method for device at {address=}: {method.value=}")
 
     def fast_reference(self, negative_limit: bool = True):
         """
         Perform a fast reference move.
 
+        Moves the specified axis to the positive or negative physical
+        limit of its travel range and sets the current position to a defined
+        value.
+
         :param address: The address of the stage.
         """
         for address in self.addresses:
-            self.serial.write(f"{address} SVO 1 1\n".encode("utf-8"))
-            self.serial.write(
-                f"{address} {'FNL' if negative_limit else 'FPL'} 1\n".encode("utf-8")
-            )
+            # Set the servo mode to on (closed-loop operation)
+            self.send(address, "SVO 1 1")
+
+            self.send(address, f"{'FNL' if negative_limit else 'FPL'} 1")
+            self.logger.debug(f"Performed fast reference for device at {address=}")
 
     def is_reference_needed(self) -> bool:
         """
@@ -256,7 +267,7 @@ class PI(Stage):
         :param address: The address of the stage.
         """
         for address in self.addresses:
-            self.serial.write(f"{address} STP\n".encode("utf-8"))
+            self.send(address, "STP")
 
     def error(self) -> List[PIError]:
         """
@@ -277,12 +288,8 @@ class PI(Stage):
         """
         for address in self.addresses:
             try:
-                response = self.query("POS 1 0", address)
+                self.send(address, "POS 1 0")
             except serial.serialutil.SerialException as exc:
                 raise ConnectionFailure(
                     f"Failed to set origin for device at address {address}"
                 ) from exc
-            if not response:
-                raise ConnectionFailure(
-                    f"No response received when setting origin for device at address {address}"
-                )
