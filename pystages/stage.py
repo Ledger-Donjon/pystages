@@ -16,10 +16,11 @@
 #
 # Copyright 2018-2022 Ledger SAS, written by Michaël Mouchous
 
-from .vector import Vector
+import logging
 from typing import Optional, Callable
 from abc import ABC, abstractmethod
 from serial.tools.list_ports import comports
+from .vector import Vector
 
 
 class Stage(ABC):
@@ -41,6 +42,9 @@ class Stage(ABC):
         # Minimum and maximum software limits
         self._minimums: Optional[Vector] = None
         self._maximums: Optional[Vector] = None
+
+        logging.basicConfig(level=logging.INFO)
+        self.logger = logging.getLogger(f"{self.__class__.__name__}")
 
     def find_device(
         self,
@@ -190,3 +194,10 @@ class Stage(ABC):
         :param wait: Optionally waits for move operation to be done.
         """
         self.move_to(Vector(dim=self.num_axis), wait=wait)
+
+    def set_origin(self):
+        """
+        Set current stage's coordinates as the new device's origin.
+        May not be available for all stages, and have permanent effect.
+        """
+        ...
