@@ -1,5 +1,5 @@
 #!/bin/python3
-from typing import Optional
+from __future__ import annotations
 from PyQt6.QtWidgets import (
     QWidget,
     QHBoxLayout,
@@ -33,11 +33,11 @@ class StageType(str, Enum):
 
 
 class StageWindow(QWidget):
-    def set_controls_enabled(self, enabled: bool):
+    def set_controls_enabled(self, enabled: bool) -> None:
         for c in self.controls:
             c.setEnabled(enabled)
 
-    def connect(self, on_off):
+    def connect(self, on_off: bool) -> None:
         if on_off:
             selected = self.stage_selection.currentText()
             port = self.port_selection.currentData()
@@ -77,14 +77,14 @@ class StageWindow(QWidget):
         super().__init__()
 
         # Current stage
-        self.stage: Optional[Stage] = None
+        self.stage: Stage | None = None
 
         # This flag is used to limit the communication
         # with the stage by not making updates of the position
         self.in_motion = False
 
         # Moving controls
-        self.controls = []
+        self.controls: list[QWidget] = []
 
         vbox = QVBoxLayout()
         self.setLayout(vbox)
@@ -103,7 +103,7 @@ class StageWindow(QWidget):
                 StageType.SMC,
             ]
         )
-        w.currentIndexChanged.connect(self.update_stage_options)
+        w.currentIndexChanged.connect(lambda _: self.update_stage_options())
         box.addWidget(w)
         self.port_selection = w = QComboBox()
         w.addItem("Auto detection", None)
@@ -267,7 +267,7 @@ class StageWindow(QWidget):
         pos.z = z
         self.stage.move_to(pos)
 
-    def update_stage_options(self, index):
+    def update_stage_options(self):
         model = self.stage_selection.currentText()
         self.widget_axis.setVisible(model in [StageType.SMC, StageType.PI])
         self.lineedit_axis.setText("1, 2" if model == StageType.SMC else "1, 2, 3")

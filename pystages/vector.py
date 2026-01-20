@@ -16,9 +16,10 @@
 #
 # Copyright 2018 Ledger SAS, written by Olivier Hériveaux and Manuel San Pedro
 
+from __future__ import annotations
 
+from typing import SupportsIndex
 import unittest
-from typing import Union
 
 
 class Vector:
@@ -26,7 +27,7 @@ class Vector:
     Some basic vector manipulation class for stages control.
     """
 
-    def __init__(self, *args, dim=None):
+    def __init__(self, *args: int | float, dim: int | None = None):
         """
         :param args: Initial values of the vector.
         :param dim: Dimension of the vector.
@@ -41,52 +42,52 @@ class Vector:
             self.data = list(args)
 
     @property
-    def x(self):
+    def x(self) -> int | float:
         """First element of the vector."""
         return self.data[0]
 
     @x.setter
-    def x(self, value):
+    def x(self, value: int | float):
         self.data[0] = value
 
     @property
-    def y(self):
+    def y(self) -> int | float:
         """Second element of the vector."""
         return self.data[1]
 
     @y.setter
-    def y(self, value):
+    def y(self, value: int | float):
         self.data[1] = value
 
     @property
-    def z(self):
+    def z(self) -> int | float:
         """Third element of the vector."""
         return self.data[2]
 
     @z.setter
-    def z(self, value):
+    def z(self, value: int | float):
         self.data[2] = value
 
     @property
-    def w(self):
+    def w(self) -> int | float:
         """Fourth element of the vector."""
         return self.data[3]
 
     @w.setter
-    def w(self, value):
+    def w(self, value: int | float):
         self.data[3] = value
 
     @property
-    def xy(self):
+    def xy(self) -> Vector:
         """First and second elements of the vector, as a 2D Vector."""
         return Vector(self.data[0], self.data[1])
 
     @xy.setter
-    def xy(self, value):
+    def xy(self, value: Vector):
         self.data[0] = value.data[0]
         self.data[1] = value.data[1]
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: SupportsIndex):
         """
         :return: Vector element if key is an integer, or a list of items if key
             is a slice.
@@ -94,7 +95,7 @@ class Vector:
         """
         return self.data[key]
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: SupportsIndex, value: int | float):
         """
         Set an item of the vector.
         :param key: int or slice.
@@ -108,7 +109,7 @@ class Vector:
         """
         return "(" + ",".join(str(x) for x in self.data) + ")"
 
-    def __add__(self, other):
+    def __add__(self, other: Vector):
         """
         :return: Sum of this vector to the other.
         :param other: A Vector instance of same dimension.
@@ -121,7 +122,7 @@ class Vector:
             result.data[i] += other[i]
         return result
 
-    def __sub__(self, other):
+    def __sub__(self, other: Vector):
         """
         :return: Difference between this vector and the other.
         :param other: A Vector instance of same dimension.
@@ -134,14 +135,14 @@ class Vector:
             result.data[i] -= other[i]
         return result
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.data)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """ """
         return "Vector(" + ",".join(str(x) for x in self.data) + ")"
 
-    def __eq__(self, other):
+    def __eq__(self, other: Vector) -> bool:
         if len(self) != len(other):
             return False
         for i in range(len(self)):
@@ -149,7 +150,7 @@ class Vector:
                 return False
         return True
 
-    def __mul__(self, other: Union["Vector", int, float]):
+    def __mul__(self, other: Vector | int | float):
         """
         :return: Scalar multiplication between this vector and the other.
         :param other: A Vector instance of same dimension, or an integer or a float.
@@ -168,14 +169,13 @@ class Vector:
             result[i] = self[i] * other[i]
         return result
 
-    def __truediv__(self, other):
-        if isinstance(other, (int, float)):
-            return self * (1.0 / other)
-        else:
+    def __truediv__(self, other: int | float):
+        if not isinstance(other, (int, float)):
             raise TypeError(
                 "Incorrect type for second operand. int or float is expected."
             )
-
+        return self * (1.0 / other)
+            
 
 class TestVector(unittest.TestCase):
     def test_init(self):

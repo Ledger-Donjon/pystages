@@ -16,13 +16,14 @@
 #
 # Copyright 2018-2022 Ledger SAS, written by Olivier Hériveaux
 
+from __future__ import annotations
+
 
 import serial.serialutil
 import time
 from .exceptions import ConnectionFailure
 from .vector import Vector
 from .stage import Stage
-from typing import Optional
 
 
 class Corvus(Stage):
@@ -30,7 +31,7 @@ class Corvus(Stage):
     Class to command Corvus Eco XYZ stage controller.
     """
 
-    def __init__(self, dev: Optional[str] = None, serial_number: Optional[str] = None):
+    def __init__(self, dev: str | None = None, serial_number: str | None = None):
         """
         Open serial device to connect to the Corvus controller. Raise a
         ConnectionFailure exception if the serial device could not be open.
@@ -46,7 +47,7 @@ class Corvus(Stage):
             raise ConnectionFailure() from e
         self.__init()
 
-    def __init(self):
+    def __init(self) -> None:
         """Initialize a few parameters."""
         # Tell we work with 3 axis for move commands
         self.send("3 setdim")
@@ -61,7 +62,7 @@ class Corvus(Stage):
         # Enable joystick
         self.enable_joystick()
 
-    def send(self, command: str):
+    def send(self, command: str) -> None:
         """
         Send a command.
 
@@ -95,7 +96,7 @@ class Corvus(Stage):
         self.send(command)
         return self.receive()
 
-    def calibrate_xy(self):
+    def calibrate_xy(self) -> None:
         """
         Execute limit-switch move only on X and Y axises. Wait until
         calibration si done.
@@ -113,7 +114,7 @@ class Corvus(Stage):
         # Re-enabled Z-axis
         self.send("1 3 setaxis")
 
-    def calibrate(self):
+    def calibrate(self) -> None:
         """
         Execute limit-switch move. Wait until calibration is done.
         Take caution for collisions before calling this method !
@@ -126,7 +127,7 @@ class Corvus(Stage):
             while int(self.send_receive("{0} getcaldone".format(i + 1))) != 3:
                 time.sleep(0.1)
 
-    def home(self, wait=False):
+    def home(self, wait: bool = False) -> None:
         """
         Execute limit-switch move.
         Take caution for collisions before calling this method !
@@ -138,7 +139,7 @@ class Corvus(Stage):
         if wait:
             self.wait_move_finished()
 
-    def move_relative(self, x, y, z):
+    def move_relative(self, x: float, y: float, z: float) -> None:
         """
         Move stage relative to current position.
 
@@ -151,24 +152,24 @@ class Corvus(Stage):
         self.wait_move_finished()
 
     @property
-    def is_moving(self):
+    def is_moving(self) -> bool:
         return bool(int(self.send_receive("st")) & 1)
 
-    def set_origin(self):
+    def set_origin(self) -> None:
         """Set current stage's coordinates as the new origin."""
         self.send("0 0 0 setpos")
 
-    def enable_joystick(self):
+    def enable_joystick(self) -> None:
         """Enable joystick (manual mode)"""
         self.send("1 j")
 
     @property
-    def is_connected(self):
+    def is_connected(self) -> bool:
         """:return: True if the instance is connected to the stage."""
-        return self.serial is not None
+        return self.serial.is_open
 
     @property
-    def position(self):
+    def position(self) -> Vector:
         """
         Current stage position. Vector.
 
@@ -189,7 +190,7 @@ class Corvus(Stage):
         self.send("{0} {1} {2} move".format(value.x, value.y, value.z))
 
     @property
-    def velocity(self):
+    def velocity(self) -> float:
         """
         Motors velocity setting, in µm/s.
 
@@ -200,13 +201,13 @@ class Corvus(Stage):
         return res
 
     @velocity.setter
-    def velocity(self, value):
+    def velocity(self, value: float) -> None:
         if value < 0:
             raise ValueError("Velocity parameter cannot be negative.")
         self.send("{0} sv".format(value))
 
     @property
-    def acceleration(self):
+    def acceleration(self) -> float:
         """
         Motors acceleration setting, in µm/s^2.
 
@@ -217,16 +218,16 @@ class Corvus(Stage):
         return res
 
     @acceleration.setter
-    def acceleration(self, value):
+    def acceleration(self, value: float) -> None:
         if value < 0:
             raise ValueError("Acceleration parameter cannot be negative.")
         self.send("{0} sa".format(value))
 
-    def save(self):
+    def save(self) -> None:
         """Save current parameters in non-volatile memory."""
         self.send("save")
 
-    def restore(self):
+    def restore(self) -> None:
         """
         Reactivates the last saved parameters. Beware this might change units,
         which may be dangerous if care is not taken.

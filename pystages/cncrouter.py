@@ -20,9 +20,11 @@
 #
 # Copyright 2018-2023 Ledger SAS, written by Michaël Mouchous
 
+from __future__ import annotations
+
 import serial.serialutil
 import time
-from typing import Optional, Tuple, List, Union, Dict, cast
+from typing import cast
 from .exceptions import ConnectionFailure
 from .vector import Vector
 from enum import Enum
@@ -30,7 +32,7 @@ from .grbl import GRBLSetting, InvertMask, StatusReportMask
 from .stage import Stage
 
 # Extra status fields reported by GRBL
-StatusExtras = Dict[str, Union[List[str], str, None]]
+StatusExtras = dict[str, list[str] | str | None]
 
 class CNCStatus(str, Enum):
     """
@@ -59,7 +61,7 @@ class CNCRouter(Stage):
     Class to command CNC routers.
     """
 
-    def __init__(self, dev: Optional[str] = None, reset_wait_time: float = 2.0):
+    def __init__(self, dev: str | None = None, reset_wait_time: float = 2.0):
         """
         Open serial device to connect to the CNC routers. Raise a
         ConnectionFailure exception if the serial device could not be open.
@@ -79,7 +81,7 @@ class CNCRouter(Stage):
             raise ConnectionFailure() from e
         self.reset_grbl()
 
-    def reset_grbl(self, wait_time: Optional[float] = None) -> bool:
+    def reset_grbl(self, wait_time: float | None = None) -> bool:
         """
         Sends a CTRL+X control to reset the GRBL
 
@@ -130,13 +132,13 @@ class CNCRouter(Stage):
 
     def get_grbl_setting(
         self, setting: GRBLSetting
-    ) -> Union[float, bool, InvertMask, StatusReportMask, int]:
+    ) -> float | bool | InvertMask | StatusReportMask | int:
         return self.get_grbl_settings()[setting]
 
     def set_grbl_setting(
         self,
         setting: GRBLSetting,
-        value: Union[float, bool, InvertMask, StatusReportMask, int],
+        value: float | bool | InvertMask | StatusReportMask | int,
     ):
         """
         Set the GRBL setting of the Router with given value. The value type must correspond to
@@ -153,9 +155,9 @@ class CNCRouter(Stage):
         # We do nothing for int and floats.
         return self.send_receive(f"{setting.value}={value}")
 
-    def get_grbl_settings(self) -> Dict[
-        GRBLSetting, Union[float, bool, InvertMask, StatusReportMask, int]
-    ]:
+    def get_grbl_settings(
+        self,
+    ) -> dict[GRBLSetting, float | bool | InvertMask | StatusReportMask | int]:
         """
         Obtains and parse the list of GRBLSettings with the `$$` command.
 
@@ -163,8 +165,8 @@ class CNCRouter(Stage):
         """
         self.send("$$")
         lines = self.receive_lines()
-        settings: Dict[
-            GRBLSetting, Union[float, bool, InvertMask, StatusReportMask, int]
+        settings: dict[
+            GRBLSetting, float | bool | InvertMask | StatusReportMask | int
         ] = {}
         for line in lines:
             key, value = line.split("=", 1)
@@ -178,7 +180,7 @@ class CNCRouter(Stage):
                 settings[setting] = setting.type(int(value))
         return settings
 
-    def get_current_status(self) -> Optional[Tuple[CNCStatus, Dict[str, object]]]:
+    def get_current_status(self) -> tuple[CNCStatus, dict[str, object]] | None:
         """
         Sending '?' character permits to get the status of the CNC
         router
@@ -225,7 +227,7 @@ class CNCRouter(Stage):
         cncstatus = CNCStatus(elements[0])
 
         # Next elements to be parsed as key/value pairs
-        others: Dict[str, object] = {}
+        others: dict[str, object] = {}
         for key_value in [element.split(":", 1) for element in elements[1:]]:
             key = key_value[0]
             value = None if len(key_value) == 1 else key_value[1]
@@ -236,7 +238,7 @@ class CNCRouter(Stage):
 
         return cncstatus, others
 
-    def send(self, command: str, eol: Optional[str] = None):
+    def send(self, command: str, eol: str | None = None) -> None:
         """
         Send a command.
 
@@ -247,7 +249,7 @@ class CNCRouter(Stage):
             eol = "\n"
         self.serial.write((command + eol).encode())
 
-    def receive_lines(self, until: str = "ok") -> List[str]:
+    def receive_lines(self, until: str = "ok") -> list[str]:
         """
         Receive multiple lines until getting as specific value.
 
@@ -255,7 +257,7 @@ class CNCRouter(Stage):
         :return: The list of all received lines. Note that the expected line is not included in the
             list.
         """
-        lines: List[str] = []
+        lines: list[str] = []
         while (line := self.serial.readline().strip().decode()) != until:
             if len(line):
                 lines.append(line)
@@ -308,16 +310,16 @@ class CNCRouter(Stage):
                 attempts += 1
                 time.sleep(0.05)
                 continue
-            extra_dict: Dict[str, object] = status_tuple[1]
+            extra_dict: dict[str, object] = status_tuple[1]
             # Preferred: compute WPos = MPos - WCO when both available
             if "WCO" in extra_dict and "MPos" in extra_dict:
                 mpos_raw = extra_dict.get("MPos")
                 wco_raw = extra_dict.get("WCO")
                 if isinstance(mpos_raw, list) and isinstance(wco_raw, list):
-                    mpos_src = cast(List[str], mpos_raw)
-                    wco_src = cast(List[str], wco_raw)
-                    mpos_list: List[float] = [float(v) for v in mpos_src]
-                    wco_list: List[float] = [float(v) for v in wco_src]
+                    mpos_src = cast(list[str], mpos_raw)
+                    wco_src = cast(list[str], wco_raw)
+                    mpos_list: list[float] = [float(v) for v in mpos_src]
+                    wco_list: list[float] = [float(v) for v in wco_src]
                     mpos = Vector(*mpos_list)
                     wco = Vector(*wco_list)
                     return mpos - wco
@@ -325,8 +327,8 @@ class CNCRouter(Stage):
             if "WPos" in extra_dict:
                 wpos_raw = extra_dict.get("WPos")
                 if isinstance(wpos_raw, list):
-                    wpos_src = cast(List[str], wpos_raw)
-                    wpos_list: List[float] = [float(v) for v in wpos_src]
+                    wpos_src = cast(list[str], wpos_raw)
+                    wpos_list: list[float] = [float(v) for v in wpos_src]
                     return Vector(*wpos_list)
             attempts += 1
             time.sleep(0.05)
@@ -343,7 +345,7 @@ class CNCRouter(Stage):
         assert pos_setter is not None
         pos_setter(self, value)
 
-        coords: List[float] = [float(v) for v in cast(List[float], value.data)]
+        coords: list[float] = [float(v) for v in cast(list[float], value.data)]
         command = f"G0 X{coords[0]}"
         if len(coords) > 1:
             command += f" Y{coords[1]}"
