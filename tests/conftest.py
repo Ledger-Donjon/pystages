@@ -5,35 +5,34 @@ import pytest
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
-        "--stages",
+        "--stage",
         action="store",
-        default="",
-        help="Liste de types de stages à activer (ex: pi,smc100,cnc).",
+        default=None,
+        help="Stage type(s) to enable (e.g. PI, SMC100, CNC).",
     )
     parser.addoption(
         "--dev",
         action="store",
         default=None,
-        help="Chemin du device/port série à utiliser pour les tests hardware.",
+        help="Device/serial port to use for hardware tests.",
     )
 
 
 @pytest.fixture
-def enabled_stages(request: pytest.FixtureRequest) -> set[str]:
-    raw = request.config.getoption("--stages")
+def enabled_stage(request: pytest.FixtureRequest) -> str | None:
+    raw = request.config.getoption("--stage")
     if not raw:
-        return set()
-    return {stage.strip().lower() for stage in raw.split(",") if stage.strip()}
+        return None
+    return raw.strip().lower()
 
 
 @pytest.fixture
-def require_stage(enabled_stages: set[str]) -> Callable[[str], None]:
+def require_stage(enabled_stage: str) -> Callable[[str], None]:
     def _require(stage_name: str) -> None:
-        if stage_name.lower() not in enabled_stages:
+        if enabled_stage != stage_name.lower():
             pytest.skip(
-                f"Stage '{stage_name}' non activé. Utilisez --stages={stage_name}."
+                f"Stage '{stage_name}' not enabled. Use --stage={stage_name}."
             )
-
     return _require
 
 
