@@ -1,12 +1,15 @@
+import random
+import time
+from collections.abc import Callable
+
+from pystages import Vector
 from pystages.pi import PI, PIReferencingMethod
 from pystages.pi_errors import PIError
-from pystages import Vector
-import time
-import random
 
 
-def test_IDN():
-    pi = PI(dev="/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
+def test_IDN(require_stage: Callable[[str], None], stage_dev: str | None):
+    require_stage("pi")
+    pi = PI(dev=stage_dev or "/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
     idns = pi.idn()
     print("\n\t".join(["IDNs:"] + idns))
     assert len(idns) == 3
@@ -16,23 +19,26 @@ def test_IDN():
         assert "Physik Instrumente (PI) GmbH & Co. KG" in idn
 
 
-def test_get_position():
-    pi = PI(dev="/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
+def test_get_position(require_stage: Callable[[str], None], stage_dev: str | None):
+    require_stage("pi")
+    pi = PI(dev=stage_dev or "/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
     position = pi.position
     print("Position:", position)
     assert len(position) == 3  # Replace with the expected number of axes
     assert all(isinstance(p, float) for p in position)  # Replace with the expected type
 
 
-def test_is_moving():
-    pi = PI(dev="/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
+def test_is_moving(require_stage: Callable[[str], None], stage_dev: str | None):
+    require_stage("pi")
+    pi = PI(dev=stage_dev or "/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
     is_moving = pi.is_moving
     print("Is moving:", is_moving)
     assert isinstance(is_moving, bool)
 
 
-def test_fast_reference():
-    pi = PI(dev="/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
+def test_fast_reference(require_stage: Callable[[str], None], stage_dev: str | None):
+    require_stage("pi")
+    pi = PI(dev=stage_dev or "/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
     pi.fast_reference(negative_limit=False)
     print("Fast reference executed.")
     time.sleep(1)
@@ -52,8 +58,11 @@ def test_fast_reference():
     print("Fast reference finished.")
 
 
-def test_move_random_10_times():
-    pi = PI(dev="/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
+def test_move_random_10_times(
+    require_stage: Callable[[str], None], stage_dev: str | None
+):
+    require_stage("pi")
+    pi = PI(dev=stage_dev or "/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
     pi.fast_reference()
     print("Fast referencing...")
     while pi.is_moving:
@@ -72,8 +81,9 @@ def test_move_random_10_times():
         time.sleep(1)
 
 
-def test_move():
-    pi = PI(dev="/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
+def test_move(require_stage: Callable[[str], None], stage_dev: str | None):
+    require_stage("pi")
+    pi = PI(dev=stage_dev or "/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
     pi.fast_reference()
     print("Fast referencing...")
     while pi.is_moving:
@@ -90,20 +100,27 @@ def test_move():
     print(f"Move to {position} finished: {pi.position}")
 
 
-def test_reference_method():
-    pi = PI(dev="/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
+def test_reference_method(
+    require_stage: Callable[[str], None], stage_dev: str | None
+):
+    require_stage("pi")
+    pi = PI(dev=stage_dev or "/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
     print("\n" + "\n".join(m.name for m in pi.reference_methods))
 
 
-def test_set_reference_method():
-    pi = PI(dev="/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
+def test_set_reference_method(
+    require_stage: Callable[[str], None], stage_dev: str | None
+):
+    require_stage("pi")
+    pi = PI(dev=stage_dev or "/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
     pi.reference_methods = PIReferencingMethod.POS_ALLOWED
     print("Reference methods set to:", pi.reference_methods)
     assert all(m == PIReferencingMethod.POS_ALLOWED for m in pi.reference_methods)
 
 
-def test_error():
-    pi = PI(dev="/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
+def test_error(require_stage: Callable[[str], None], stage_dev: str | None):
+    require_stage("pi")
+    pi = PI(dev=stage_dev or "/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
     errors = pi.error()
     print("Errors:", errors)
     assert isinstance(errors, list)
