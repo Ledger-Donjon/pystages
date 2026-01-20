@@ -19,8 +19,9 @@
 # https://drive.google.com/file/d/1yQH9gtO8lWbE-K0dff8g9zq_1xOB57x7
 #
 # Copyright 2018-2022 Ledger SAS, written by Michaël Mouchous
+from __future__ import annotations
+
 from enum import Enum, Flag
-from typing import Union
 
 
 class InvertMask(Flag):
@@ -46,7 +47,7 @@ class StatusReportMask(Flag):
     LIMIT_PINS = 1 << 4
 
 
-class GRBLSetting(Enum):
+class GRBLSetting(str, Enum):
     """
     GRBL Setting are obtained by sending the '$$' command as a list of
     key-value pairs '$K=V' with K being a number.
@@ -95,7 +96,7 @@ class GRBLSetting(Enum):
         return type(self._description[0])
 
     @property
-    def default_value(self) -> Union[float, bool, InvertMask, StatusReportMask, int]:
+    def default_value(self) -> float | bool | InvertMask | StatusReportMask | int:
         """
         Gives the default value of the GRBL setting
         """
@@ -109,7 +110,8 @@ class GRBLSetting(Enum):
         return self._description[1]
 
     @property
-    def _description(self) -> dict:
+    def _description(self) -> tuple[float, str] | tuple[int, str] | \
+            tuple[bool, str] | tuple[StatusReportMask, str] | tuple[InvertMask, str]:
         # Numbering: (type, default value, description)
         return {
             GRBLSetting.STEP_PULSE: (10.0, "Step pulse, usec"),

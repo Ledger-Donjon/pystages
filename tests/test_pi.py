@@ -7,10 +7,11 @@ import random
 
 def test_IDN():
     pi = PI(dev="/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
-    print("\n\t".join(["IDNs:"] + pi._idns))
-    assert len(pi._idns) == 3
+    idns = pi.idn()
+    print("\n\t".join(["IDNs:"] + idns))
+    assert len(idns) == 3
 
-    for i, idn in enumerate(pi.idn()):
+    for i, idn in enumerate(idns):
         print(f"IDN {i}:", idn)
         assert "Physik Instrumente (PI) GmbH & Co. KG" in idn
 

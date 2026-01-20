@@ -28,9 +28,9 @@ class Autofocus:
     """
 
     def __init__(self):
-        self.registered_points = []
+        self.registered_points: list[tuple[int | float, int | float, int | float]] = []
 
-    def register(self, x, y, z):
+    def register(self, x: int | float, y: int | float, z: int | float):
         """
         Register a new focused point.
 
@@ -44,7 +44,7 @@ class Autofocus:
         """Remove all registration points."""
         self.registered_points.clear()
 
-    def focus(self, x, y):
+    def focus(self, x: int | float, y: int | float) -> int | float:
         """
         Guess the correct focus depth given abscissa and ordinate of a new
         point. This method will raise a RuntimeError if not enough points have
@@ -63,7 +63,7 @@ class Autofocus:
         else:
             raise RuntimeError("Not enough points registered for autofocus")
 
-    def __focus_3(self, x, y):
+    def __focus_3(self, x: int | float, y: int | float) -> int | float:
         """
         Guess correct focus using 3 points.
         :param x: Abscissa of the point.
@@ -82,7 +82,7 @@ class Autofocus:
         z = ab[2] * ap_in_base[0, 0] + ac[2] * ap_in_base[0, 1] + a[2]
         return z
 
-    def __len__(self):
+    def __len__(self) -> int:
         """:return: Number of registered points."""
         return len(self.registered_points)
 

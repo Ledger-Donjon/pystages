@@ -17,13 +17,14 @@
 # Copyright 2018-2022 Ledger SAS,
 # written by Olivier Hériveaux, Manuel San Pedro and Michaël Mouchous
 
+from __future__ import annotations
 
 import serial.serialutil
 import time
 from .vector import Vector
 from .exceptions import ProtocolError, ConnectionFailure
 from enum import Enum, Flag
-from typing import Optional, List, Union, cast
+from typing import cast
 from .stage import Stage
 
 
@@ -42,7 +43,7 @@ class Link:
     controller in the daisy chain is always zero.
     """
 
-    def __init__(self, dev: Optional[str] = None):
+    def __init__(self, dev: str | None = None):
         """
         :param dev: Serial device. For instance `'/dev/ttyUSB0'`.
             If not provided, a suitable device is searched according to
@@ -53,7 +54,7 @@ class Link:
         except serial.serialutil.SerialException as e:
             raise ConnectionFailure() from e
 
-    def send(self, address: Optional[int], command: str):
+    def send(self, address: int | None, command: str) -> None:
         """
         Send a command to a controller.
 
@@ -64,7 +65,7 @@ class Link:
         to_send = f'{"" if address is None else address}{command}\r\n'
         self.serial.write(to_send.encode())
 
-    def receive(self) -> Optional[str]:
+    def receive(self) -> str | None:
         """
         Read input serial buffer to get a response. Blocks until a response is
         available.
@@ -84,8 +85,8 @@ class Link:
                 response += chr(c)
 
     def query(
-        self, address: Optional[int], command: str, lazy_res: bool = False
-    ) -> Optional[str]:
+        self, address: int | None, command: str, lazy_res: bool = False
+    ) -> str | None:
         """
         Send a query.
 
@@ -105,7 +106,7 @@ class Link:
                 # Retry to send the query
                 return self.query(address, command, lazy_res)
 
-    def response(self, address: Optional[int], command: str) -> str:
+    def response(self, address: int | None, command: str) -> str:
         """
         Get and return the response of a query. Parameters are required to
         check the header of the response.
@@ -223,7 +224,7 @@ class SMC100(Stage):
     Class to command Newport SMC100 controllers.
     """
 
-    def __init__(self, dev: Optional[Union[str, Link, "SMC100"]], addresses: List[int]):
+    def __init__(self, dev: str | Link | SMC100 | None, addresses: list[int]):
         """
         :param dev: Serial device string (for instance `'/dev/ttyUSB0'` or
             'COM0'), an instance of Link, or an instance of SMC100 sharing
@@ -274,8 +275,8 @@ class SMC100(Stage):
 
         # Enable the motors
         self.is_disabled = False
-        commands: List[str] = []
-        coords: List[float] = [float(v) for v in cast(List[float], value.data)]
+        commands: list[str] = []
+        coords: list[float] = [float(v) for v in cast(list[float], value.data)]
         for position, addr in zip(coords, self.addresses):
             commands.append(f"{addr}PA{position:.5f}")
         self.link.send(None, "\r\n".join(commands))
@@ -368,7 +369,7 @@ class SMC100(Stage):
         self.is_disabled = False
         self.link.send(addr, f"PR{offset:.5f}")
 
-    def stop(self, addr: Optional[int] = None):
+    def stop(self, addr: int | None = None) -> None:
         """
         Stops the motion on an axis. On all axis if addr not specified.
 
@@ -376,7 +377,7 @@ class SMC100(Stage):
         """
         self.link.send(addr, "ST")
 
-    def reset(self, addr: Optional[int] = None):
+    def reset(self, addr: int | None = None) -> None:
         """
         Resets the controller at specified address. For all controllers if not specified
 
@@ -433,7 +434,7 @@ class SMC100(Stage):
         # self.is_disabled = True makes enter DISABLE state
         self.enter_leave_disable_state(None, enter=value)
 
-    def enter_leave_disable_state(self, addr: Optional[int], enter: bool = True):
+    def enter_leave_disable_state(self, addr: int | None, enter: bool = True) -> None:
         """
         Permits for a specified axis to enter or leave the DISABLE state.
         DISABLE state makes the motor not energized and opens the control loop.
