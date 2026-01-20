@@ -1,6 +1,6 @@
 import random
 import time
-from collections.abc import Callable
+from typing import Callable
 
 from pystages import Vector
 from pystages.pi import PI, PIReferencingMethod
