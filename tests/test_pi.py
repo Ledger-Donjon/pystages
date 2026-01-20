@@ -8,7 +8,7 @@ from pystages.pi_errors import PIError
 
 
 def test_IDN(require_stage: Callable[[str], None], stage_dev: str | None):
-    require_stage("pi")
+    require_stage("PI")
     pi = PI(dev=stage_dev or "/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
     idns = pi.idn()
     print("\n\t".join(["IDNs:"] + idns))
@@ -20,7 +20,7 @@ def test_IDN(require_stage: Callable[[str], None], stage_dev: str | None):
 
 
 def test_get_position(require_stage: Callable[[str], None], stage_dev: str | None):
-    require_stage("pi")
+    require_stage("PI")
     pi = PI(dev=stage_dev or "/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
     position = pi.position
     print("Position:", position)
@@ -29,7 +29,7 @@ def test_get_position(require_stage: Callable[[str], None], stage_dev: str | Non
 
 
 def test_is_moving(require_stage: Callable[[str], None], stage_dev: str | None):
-    require_stage("pi")
+    require_stage("PI")
     pi = PI(dev=stage_dev or "/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
     is_moving = pi.is_moving
     print("Is moving:", is_moving)
@@ -37,7 +37,7 @@ def test_is_moving(require_stage: Callable[[str], None], stage_dev: str | None):
 
 
 def test_fast_reference(require_stage: Callable[[str], None], stage_dev: str | None):
-    require_stage("pi")
+    require_stage("PI")
     pi = PI(dev=stage_dev or "/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
     pi.fast_reference(negative_limit=False)
     print("Fast reference executed.")
