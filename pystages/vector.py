@@ -18,8 +18,8 @@
 
 from __future__ import annotations
 
-from typing import SupportsIndex
-import unittest
+from collections.abc import Sequence
+from typing import SupportsIndex, cast
 
 
 class Vector:
@@ -142,11 +142,17 @@ class Vector:
         """ """
         return "Vector(" + ",".join(str(x) for x in self.data) + ")"
 
-    def __eq__(self, other: Vector) -> bool:
-        if len(self) != len(other):
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, Vector):
+            other_seq: Sequence[int | float] = other.data
+        elif isinstance(other, Sequence):
+            other_seq = cast(Sequence[int | float], other)
+        else:
+            return False
+        if len(self) != len(other_seq):
             return False
         for i in range(len(self)):
-            if self[i] != other[i]:
+            if self[i] != other_seq[i]:
                 return False
         return True
 
@@ -169,141 +175,9 @@ class Vector:
             result[i] = self[i] * other[i]
         return result
 
-    def __truediv__(self, other: int | float):
+    def __truediv__(self, other: object):
         if not isinstance(other, (int, float)):
             raise TypeError(
                 "Incorrect type for second operand. int or float is expected."
             )
         return self * (1.0 / other)
-            
-
-class TestVector(unittest.TestCase):
-    def test_init(self):
-        v = Vector(1)
-        self.assertEqual(len(v), 1)
-        self.assertEqual(v.data, [1])
-        v = Vector(1, 2)
-        self.assertEqual(len(v), 2)
-        self.assertEqual(v.data, [1, 2])
-        v = Vector(1, 2, 3)
-        self.assertEqual(len(v), 3)
-        self.assertEqual(v.data, [1, 2, 3])
-        v = Vector(1, 2, 3, 4)
-        self.assertEqual(len(v), 4)
-        self.assertEqual(v.data, [1, 2, 3, 4])
-
-        for i in range(5):
-            v = Vector(dim=i)
-            self.assertEqual(len(v), i)
-
-        v = Vector(1, dim=1)
-        self.assertEqual(len(v), 1)
-        self.assertEqual(v.data, [1])
-        v = Vector(1, 2, dim=2)
-        self.assertEqual(len(v), 2)
-        self.assertEqual(v.data, [1, 2])
-        v = Vector(1, 2, 3, dim=3)
-        self.assertEqual(len(v), 3)
-        self.assertEqual(v.data, [1, 2, 3])
-        v = Vector(1, 2, 3, 4, dim=4)
-        self.assertEqual(len(v), 4)
-        self.assertEqual(v.data, [1, 2, 3, 4])
-
-        # Test padding with 0
-        v = Vector(dim=4)
-        self.assertEqual(len(v), 4)
-        self.assertEqual(v.data, [0, 0, 0, 0])
-        v = Vector(1, dim=4)
-        self.assertEqual(len(v), 4)
-        self.assertEqual(v.data, [1, 0, 0, 0])
-        v = Vector(1, 2, dim=4)
-        self.assertEqual(len(v), 4)
-        self.assertEqual(v.data, [1, 2, 0, 0])
-        v = Vector(1, 2, 3, dim=4)
-        self.assertEqual(len(v), 4)
-        self.assertEqual(v.data, [1, 2, 3, 0])
-
-        # Test number of args checking
-        with self.assertRaises(ValueError):
-            _ = Vector(1, 2, 3, 4, 5, dim=4)
-
-    def test_xyzw(self):
-        v = Vector(1, 2, 3, 4)
-        self.assertEqual(v[0], 1)
-        self.assertEqual(v[1], 2)
-        self.assertEqual(v[2], 3)
-        self.assertEqual(v[3], 4)
-        self.assertEqual(v.x, 1)
-        self.assertEqual(v.y, 2)
-        self.assertEqual(v.z, 3)
-        self.assertEqual(v.w, 4)
-        self.assertEqual(v.xy, Vector(1, 2))
-        v[0] = 11
-        v[1] = 12
-        v[2] = 13
-        v[3] = 14
-        self.assertEqual(v[0], 11)
-        self.assertEqual(v[1], 12)
-        self.assertEqual(v[2], 13)
-        self.assertEqual(v[3], 14)
-        self.assertEqual(v.x, 11)
-        self.assertEqual(v.y, 12)
-        self.assertEqual(v.z, 13)
-        self.assertEqual(v.w, 14)
-        v.x = 101
-        v.y = 102
-        v.z = 103
-        v.w = 104
-        self.assertEqual(v[0], 101)
-        self.assertEqual(v[1], 102)
-        self.assertEqual(v[2], 103)
-        self.assertEqual(v[3], 104)
-        self.assertEqual(v.x, 101)
-        self.assertEqual(v.y, 102)
-        self.assertEqual(v.z, 103)
-        self.assertEqual(v.w, 104)
-        v.xy = Vector(1001, 1002)
-        self.assertEqual(v[0], 1001)
-        self.assertEqual(v[1], 1002)
-        self.assertEqual(v[2], 103)
-        self.assertEqual(v[3], 104)
-        self.assertEqual(v.x, 1001)
-        self.assertEqual(v.y, 1002)
-        self.assertEqual(v.z, 103)
-        self.assertEqual(v.w, 104)
-
-    def test_add(self):
-        v1 = Vector(2, 3, 5)
-        v2 = Vector(7, 11, 13)
-        v3 = v1 + v2
-        self.assertEqual(v3.data, [9, 14, 18])
-
-    def test_sub(self):
-        v1 = Vector(2, 3, 5)
-        v2 = Vector(7, 11, 13)
-        v3 = v1 - v2
-        self.assertEqual(v3.data, [-5, -8, -8])
-
-    def test_eq(self):
-        self.assertEqual(Vector(), ())
-        self.assertEqual(Vector(), [])
-        self.assertEqual(Vector(1), Vector(1))
-        self.assertEqual(Vector(1, 2), Vector(1, 2))
-        self.assertEqual(Vector(1, 2, 3), Vector(1, 2, 3))
-        self.assertNotEqual(Vector(1, 2, 3), Vector(4, 2, 3))
-        self.assertNotEqual(Vector(1, 2, 3), Vector(1, 4, 3))
-        self.assertNotEqual(Vector(1, 2, 3), Vector(1, 2, 4))
-        self.assertNotEqual(Vector(1, 2, 3), Vector(1, 2))
-
-    def test_mult(self):
-        self.assertEqual(Vector() * 10, ())
-        self.assertEqual(Vector(1) * 10, Vector(10))
-        self.assertEqual(Vector(1, 2, 3) * 10, Vector(10, 20, 30))
-        self.assertEqual(
-            Vector(1.0, 2.0, 3.0) / 10,
-            Vector(1.0 * (1.0 / 10), 2.0 * (1.0 / 10), 3.0 * (1.0 / 10)),
-        )
-
-
-if __name__ == "__main__":
-    unittest.main()

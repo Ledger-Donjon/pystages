@@ -19,6 +19,9 @@ classifiers = [
 ]
 dependencies = ["pyserial", "pyusb", "numpy", "pyqt6"]
 
+[project.optional-dependencies]
+test = ["pytest"]
+
 [project.urls]
 "Homepage" = "https://github.com/Ledger-Donjon/pystages"
 "Bug Tracker" = "https://github.com/Ledger-Donjon/pystages/issues"

@@ -17,7 +17,6 @@
 # Copyright 2018-2020 Ledger SAS, written by Olivier Hériveaux
 
 import numpy as np
-import unittest
 
 
 class Autofocus:
@@ -87,31 +86,3 @@ class Autofocus:
         return len(self.registered_points)
 
 
-class TestAutofocus(unittest.TestCase):
-    def test_init(self):
-        af = Autofocus()
-        self.assertEqual(len(af), 0)
-
-    def test_clear(self):
-        af = Autofocus()
-        af.register(1, 2, 3)
-        self.assertEqual(len(af), 1)
-        af.clear()
-        self.assertEqual(len(af), 0)
-
-    def test_focus(self):
-        af = Autofocus()
-        with self.assertRaises(RuntimeError):
-            af.focus(3, 3)
-        af.register(2, 2, 10)
-        with self.assertRaises(RuntimeError):
-            af.focus(3, 3)
-        af.register(2, 3, 11)
-        with self.assertRaises(RuntimeError):
-            af.focus(3, 3)
-        af.register(3, 2, 11)
-        self.assertEqual(af.focus(3, 3), 12)
-
-
-if __name__ == "__main__":
-    unittest.main()
