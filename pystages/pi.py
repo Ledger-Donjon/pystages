@@ -96,7 +96,10 @@ class PI(Stage):
                 len(response) == 3
                 and int(response[0]) == 0
                 and int(response[1]) == address
-            ), f"Unexpected format of response: '{_response}', expecting '0 {address} PAYLOAD'."
+            ), (
+                f"Unexpected format of response: '{_response}',"
+                f" expecting '0 {address} PAYLOAD'."
+            )
 
             payload: str = response[2].strip()
             responses.append(payload)
@@ -267,3 +270,19 @@ class PI(Stage):
             assert len(response) == 1
             errors.append(PIError(int(response[0])))
         return errors
+
+    def set_origin(self):
+        """
+        Set current stage's coordinates as the new origin.
+        """
+        for address in self.addresses:
+            try:
+                response = self.query("POS 1 0", address)
+            except serial.serialutil.SerialException as exc:
+                raise ConnectionFailure(
+                    f"Failed to set origin for device at address {address}"
+                ) from exc
+            if not response:
+                raise ConnectionFailure(
+                    f"No response received when setting origin for device at address {address}"
+                )
