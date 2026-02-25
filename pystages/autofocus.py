@@ -16,6 +16,8 @@
 #
 # Copyright 2018-2020 Ledger SAS, written by Olivier Hériveaux
 
+from __future__ import annotations
+
 import numpy as np
 
 
@@ -29,7 +31,7 @@ class Autofocus:
     def __init__(self):
         self.registered_points: list[tuple[int | float, int | float, int | float]] = []
 
-    def register(self, x: int | float, y: int | float, z: int | float):
+    def register(self, x: int | float, y: int | float, z: int | float) -> None:
         """
         Register a new focused point.
 
@@ -39,7 +41,7 @@ class Autofocus:
         """
         self.registered_points.append((x, y, z))
 
-    def clear(self):
+    def clear(self) -> None:
         """Remove all registration points."""
         self.registered_points.clear()
 

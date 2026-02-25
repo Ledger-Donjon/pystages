@@ -19,6 +19,7 @@
 # https://drive.google.com/file/d/1yQH9gtO8lWbE-K0dff8g9zq_1xOB57x7
 #
 # Copyright 2018-2022 Ledger SAS, written by Michaël Mouchous
+
 from __future__ import annotations
 
 from enum import Enum, Flag
@@ -119,7 +120,7 @@ class GRBLSetting(str, Enum):
         | tuple[StatusReportMask, str]
         | tuple[InvertMask, str]
     ):
-        # Numbering: (type, default value, description)
+        # Numbering: (default value, description)
         return {
             GRBLSetting.STEP_PULSE: (10.0, "Step pulse, usec"),
             GRBLSetting.STEP_IDLE_DELAY: (25.0, "Step idle delay, msec"),

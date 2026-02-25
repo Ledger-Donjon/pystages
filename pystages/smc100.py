@@ -182,8 +182,8 @@ class ErrorAndState:
     Information returned when querying positioner error and controller state.
     """
 
-    state = State.NOT_REFERENCED_FROM_RESET
-    error = Error.NO_ERROR
+    state: State = State.NOT_REFERENCED_FROM_RESET
+    error: Error = Error.NO_ERROR
 
     @property
     def is_referenced(self) -> bool:
@@ -256,7 +256,7 @@ class SMC100(Stage):
             self.link.query(addr, "TS")
 
     @property
-    def position(self):
+    def position(self) -> Vector:
         """
         Stage position, in micrometers.
 
@@ -289,7 +289,7 @@ class SMC100(Stage):
             commands.append(f"{addr}PA{position:.5f}")
         self.link.send(None, "\r\n".join(commands))
 
-    def home(self, wait: bool = False):
+    def home(self, wait: bool = False) -> None:
         """
         Perform home search.
 
@@ -299,7 +299,7 @@ class SMC100(Stage):
         if wait:
             self.wait_move_finished()
 
-    def home_search(self):
+    def home_search(self) -> None:
         """
         Perform home search.
         Home search is performed even if the axes are already referenced.
@@ -311,7 +311,7 @@ class SMC100(Stage):
             self.get_error_and_state(addr=addr)
             self.link.send(addr, "OR")
 
-    def home_search_if_required(self):
+    def home_search_if_required(self) -> None:
         """
         Perform home search for all axes which are not referenced.
         """
@@ -320,7 +320,7 @@ class SMC100(Stage):
             if not state.is_referenced:
                 self.link.send(addr, "OR")
 
-    def get_error_and_state(self, addr: int):
+    def get_error_and_state(self, addr: int) -> ErrorAndState:
         """
         Query current motion controller errors and state.
         Querying the error and state may clear error flags.
@@ -336,18 +336,18 @@ class SMC100(Stage):
         result.state = State(int(res[4:], 16))
         return result
 
-    def enter_configuration_state(self, addr: int):
+    def enter_configuration_state(self, addr: int) -> None:
         """Enter configuration state."""
         self.link.send(addr, "PW1")
 
-    def leave_configuration_state(self, addr: int):
+    def leave_configuration_state(self, addr: int) -> None:
         """
         Leave configuration state. If defined parameters are valid, the
         controller saves them in the flash memory.
         """
         self.link.send(addr, "PW0")
 
-    def controller_address(self, addr: int):
+    def controller_address(self, addr: int) -> int:
         """
         Get controller's RS-485 address. int in [2, 31].
         """
@@ -356,7 +356,7 @@ class SMC100(Stage):
             raise ProtocolError("SA")
         return int(res)
 
-    def set_controller_address(self, addr: int, value: int):
+    def set_controller_address(self, addr: int, value: int) -> None:
         """
         Set controller's RS-485 address. int in [2, 31].
         Changing the address is only possible when the controller is in
@@ -366,7 +366,7 @@ class SMC100(Stage):
             raise ValueError("Invalid controller address")
         self.link.send(addr, f"SA{value}")
 
-    def move_relative(self, addr: int, offset: float):
+    def move_relative(self, addr: int, offset: float) -> None:
         """
         Moves relatively an axis from a given offset
 
