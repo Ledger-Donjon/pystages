@@ -21,7 +21,7 @@ dependencies = ["pyserial", "pyusb", "numpy", "pyqt6"]
 
 [project.optional-dependencies]
 test = ["pytest"]
-lint = ["mypy"]
+lint = ["mypy", "types-pyserial"]
 
 [project.urls]
 "Homepage" = "https://github.com/Ledger-Donjon/pystages"
