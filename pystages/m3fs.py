@@ -55,8 +55,6 @@ class M3FS(Stage):
         Supported version is: 4.7.3 M3-FS.
 
         :param dev: Serial device. For instance `'/dev/ttyUSB0'`.
-            If not provided, a suitable device is searched according to
-            according to vendor and product IDs
         :param baudrate: Serial baudrate.
         """
         super().__init__()

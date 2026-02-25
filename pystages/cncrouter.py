@@ -31,9 +31,6 @@ from enum import Enum
 from .grbl import GRBLSetting, InvertMask, StatusReportMask
 from .stage import Stage
 
-# Extra status fields reported by GRBL
-StatusExtras = dict[str, list[str] | str | None]
-
 
 class CNCStatus(str, Enum):
     """
