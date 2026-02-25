@@ -201,7 +201,7 @@ class Tic(Stage):
 
         :param wait: Ignored."""
         _ = wait
-        
+
         self.go_home(TicDirection.REVERSE, False)
 
     def go_home(self, direction: TicDirection, wait: bool = True) -> None:
