@@ -103,7 +103,7 @@ class StageWindow(QWidget):
                 StageType.SMC,
             ]
         )
-        w.currentIndexChanged.connect(lambda _: self.update_stage_options())
+        w.currentIndexChanged.connect(self.update_stage_options)
         box.addWidget(w)
         self.port_selection = w = QComboBox()
         w.addItem("Auto detection", None)

@@ -23,7 +23,7 @@ from enum import Enum
 from time import sleep
 from .stage import Stage
 from .vector import Vector
-from usb.core import Device, find
+from usb.core import Device, find  # type: ignore
 from .exceptions import ConnectionFailure
 
 
@@ -131,7 +131,7 @@ class Tic(Stage):
             self.dev = dev
         else:
             raise ConnectionFailure("Tic stepper motor not found.")
-        self.dev.set_configuration()
+        self.dev.set_configuration()  # type: ignore
         self.energize()
         self.poll_interval = 0.1
 
@@ -141,7 +141,7 @@ class Tic(Stage):
 
         :param command: Command.
         """
-        self.dev.ctrl_transfer(0x40, command, 0, 0, 0)
+        self.dev.ctrl_transfer(0x40, command, 0, 0, 0)  # type: ignore
 
     def write_7(self, command: TicCommand, data: int):
         """
@@ -150,7 +150,7 @@ class Tic(Stage):
         :param command: Command.
         :param data: Value to be written.
         """
-        self.dev.ctrl_transfer(0x40, command, data, 0, 0)
+        self.dev.ctrl_transfer(0x40, command, data, 0, 0)  # type: ignore
 
     def write_32(self, command: TicCommand, data: int):
         """
@@ -159,7 +159,7 @@ class Tic(Stage):
         :param command: Command code.
         :param data: Value to be written.
         """
-        self.dev.ctrl_transfer(0x40, command, data & 0xFFFF, data >> 16, 0)
+        self.dev.ctrl_transfer(0x40, command, data & 0xFFFF, data >> 16, 0)  # type: ignore
 
     def block_read(self, command: TicCommand, offset: int, length: int) -> bytes:
         """
@@ -169,7 +169,7 @@ class Tic(Stage):
         :param offset: Data offset.
         :param length: Data length.
         """
-        return bytes(self.dev.ctrl_transfer(0xC0, command, 0, offset, length))
+        return bytes(self.dev.ctrl_transfer(0xC0, command, 0, offset, length))  # type: ignore
 
     def set_setting(self, command: TicCommand, data: int, offset: int) -> None:
         """
@@ -179,7 +179,7 @@ class Tic(Stage):
         :param data: Value to be written.
         :param offset: Write offset.
         """
-        self.dev.ctrl_transfer(0x40, command, data, offset, 0)
+        self.dev.ctrl_transfer(0x40, command, data, offset, 0)  # type: ignore
 
     def energize(self) -> None:
         self.quick(TicCommand.ENERGIZE)
