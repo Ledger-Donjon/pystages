@@ -124,6 +124,7 @@ class GRBLSetting(str, Enum):
         all_descriptions: dict[
             GRBLSetting,
             tuple[float, str]
+            | tuple[int, str]
             | tuple[InvertMask, str]
             | tuple[bool, str]
             | tuple[StatusReportMask, str],

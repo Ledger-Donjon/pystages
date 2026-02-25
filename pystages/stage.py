@@ -25,8 +25,6 @@ from serial.tools.list_ports import comports
 from serial.tools.list_ports_common import ListPortInfo
 from .vector import Vector
 
-logging.basicConfig(level=logging.INFO)
-
 
 class Stage(ABC):
     """

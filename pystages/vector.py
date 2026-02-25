@@ -19,7 +19,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import SupportsIndex, cast
+from typing import SupportsIndex, cast, overload
 
 
 class Vector:
@@ -87,7 +87,15 @@ class Vector:
         self.data[0] = value.data[0]
         self.data[1] = value.data[1]
 
-    def __getitem__(self, key: SupportsIndex):
+    @overload
+    def __getitem__(self, key: SupportsIndex) -> int | float: ...
+
+    @overload
+    def __getitem__(self, key: slice) -> list[int | float]: ...
+
+    def __getitem__(
+        self, key: SupportsIndex | slice
+    ) -> int | float | list[int | float]:
         """
         :return: Vector element if key is an integer, or a list of items if key
             is a slice.
@@ -95,13 +103,31 @@ class Vector:
         """
         return self.data[key]
 
-    def __setitem__(self, key: SupportsIndex, value: int | float):
+    @overload
+    def __setitem__(self, key: SupportsIndex, value: int | float) -> None: ...
+    @overload
+    def __setitem__(self, key: slice, value: list[int | float]) -> None: ...
+
+    def __setitem__(
+        self, key: SupportsIndex | slice, value: int | float | list[int | float]
+    ):
         """
         Set an item of the vector.
         :param key: int or slice.
         :param value: New value.
         """
-        self.data[key] = value
+        if isinstance(key, slice):
+            if isinstance(value, (int, float)):
+                value_list = [value] * (key.stop - key.start)
+            else:
+                value_list = list(value)
+            for i in range(key.start, key.stop):
+                self.data[i] = value_list[i]
+        else:
+            if isinstance(value, list):
+                self.data[key] = value[0]
+            else:
+                self.data[key] = value
 
     def __str__(self):
         """

@@ -122,7 +122,7 @@ class PI(Stage):
             ) from e
         responses: list[str] = []
         while True:
-            _response = self.serial.readline().decode("utf-8").strip()
+            _response = self.serial.readline().decode("utf-8").rstrip("\r\n")
             self.logger.debug(f"< {_response}")
             response = _response.split(" ", 2)
             assert (

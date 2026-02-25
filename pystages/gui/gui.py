@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
     QCheckBox,
     QLineEdit,
 )
-from PyQt6.QtCore import QObject, QTimer, QLocale, QCoreApplication
+from PyQt6.QtCore import QTimer, QLocale, QCoreApplication
 from PyQt6.QtGui import QDoubleValidator
 from ..cncrouter import CNCRouter
 from ..corvus import Corvus
@@ -223,7 +223,7 @@ class StageWindow(QWidget):
         if self.stage is None:
             return
         self.in_motion = True
-        button = QObject().sender()
+        button = self.sender()
         assert isinstance(button, QPushButton)
         axe, direction = button.text()
         axe = {"X": 0, "Y": 1, "Z": 2}[axe]
