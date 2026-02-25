@@ -16,9 +16,10 @@
 #
 # Copyright 2018 Ledger SAS, written by Olivier Hériveaux
 
-
 # This file regroups a set of exception classes used by the different stage
 # implementations
+
+from __future__ import annotations
 
 
 class ConnectionFailure(Exception):
@@ -39,5 +40,5 @@ class VersionNotSupported(Exception):
     def __init__(self, version: str):
         self.version = version
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.version
