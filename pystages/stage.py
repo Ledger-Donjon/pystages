@@ -203,4 +203,4 @@ class Stage(ABC):
         Set current stage's coordinates as the new device's origin.
         May not be available for all stages, and have permanent effect.
         """
-        ...
+        return None
