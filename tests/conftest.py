@@ -27,8 +27,10 @@ def enabled_stage(request: pytest.FixtureRequest) -> str | None:
 
 
 @pytest.fixture
-def require_stage(enabled_stage: str) -> Callable[[str], None]:
+def require_stage(enabled_stage: str | None) -> Callable[[str], None]:
     def _require(stage_name: str) -> None:
+        if enabled_stage is None:
+            pytest.skip("No stage specified. Use --stage=<name> to run hardware tests.")
         if enabled_stage.lower() != stage_name.lower():
             pytest.skip(f"Stage '{stage_name}' not enabled. Use --stage={stage_name}.")
 

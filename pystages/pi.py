@@ -136,7 +136,8 @@ class PI(Stage):
 
             payload: str = response[2]
             responses.append(payload.strip())
-            if not payload.endswith(" \n"):
+            # PI GCS: trailing space before CRLF indicates more lines follow
+            if not payload.endswith(" "):
                 break
         return responses
 
