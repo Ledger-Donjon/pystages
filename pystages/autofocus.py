@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import numpy as np
+from typing import cast
 
 
 class Autofocus:
@@ -81,7 +82,7 @@ class Autofocus:
         base = np.matrix([ab[:2], ac[:2]]).T
         ap_in_base = np.array((base.I * np.matrix(ap).T).T)
         z = ab[2] * ap_in_base[0, 0] + ac[2] * ap_in_base[0, 1] + a[2]
-        return z
+        return cast(int | float, z)
 
     def __len__(self) -> int:
         """:return: Number of registered points."""

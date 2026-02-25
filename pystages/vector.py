@@ -109,7 +109,7 @@ class Vector:
         """
         return "(" + ",".join(str(x) for x in self.data) + ")"
 
-    def __add__(self, other: Vector):
+    def __add__(self, other: Vector) -> Vector:
         """
         :return: Sum of this vector to the other.
         :param other: A Vector instance of same dimension.
@@ -122,7 +122,7 @@ class Vector:
             result.data[i] += other[i]
         return result
 
-    def __sub__(self, other: Vector):
+    def __sub__(self, other: Vector) -> Vector:
         """
         :return: Difference between this vector and the other.
         :param other: A Vector instance of same dimension.
@@ -143,6 +143,10 @@ class Vector:
         return "Vector(" + ",".join(str(x) for x in self.data) + ")"
 
     def __eq__(self, other: object) -> bool:
+        """
+        :return: True if the vectors are equal, False otherwise.
+        :param other: A Vector instance of same dimension, or a Sequence of int or float.
+        """
         if isinstance(other, Vector):
             other_seq: Sequence[int | float] = other.data
         elif isinstance(other, Sequence):
@@ -156,7 +160,7 @@ class Vector:
                 return False
         return True
 
-    def __mul__(self, other: Vector | int | float):
+    def __mul__(self, other: Vector | int | float) -> Vector:
         """
         :return: Scalar multiplication between this vector and the other.
         :param other: A Vector instance of same dimension, or an integer or a float.
@@ -175,7 +179,11 @@ class Vector:
             result[i] = self[i] * other[i]
         return result
 
-    def __truediv__(self, other: object):
+    def __truediv__(self, other: int | float) -> Vector:
+        """
+        :return: Scalar division between this vector and the other.
+        :param other: An integer or a float.
+        """
         if not isinstance(other, (int, float)):
             raise TypeError(
                 "Incorrect type for second operand. int or float is expected."
