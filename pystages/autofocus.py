@@ -28,7 +28,7 @@ class Autofocus:
     other points.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.registered_points: list[tuple[int | float, int | float, int | float]] = []
 
     def register(self, x: int | float, y: int | float, z: int | float) -> None:

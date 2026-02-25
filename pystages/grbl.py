@@ -121,7 +121,13 @@ class GRBLSetting(str, Enum):
         | tuple[InvertMask, str]
     ):
         # Numbering: (default value, description)
-        return {
+        all_descriptions: dict[
+            GRBLSetting,
+            tuple[float, str]
+            | tuple[InvertMask, str]
+            | tuple[bool, str]
+            | tuple[StatusReportMask, str],
+        ] = {
             GRBLSetting.STEP_PULSE: (10.0, "Step pulse, usec"),
             GRBLSetting.STEP_IDLE_DELAY: (25.0, "Step idle delay, msec"),
             GRBLSetting.STEP_PORT_INVERT: (InvertMask(0), "Step port invert"),
@@ -159,7 +165,8 @@ class GRBLSetting(str, Enum):
             ),
             GRBLSetting.SPINDLE_RPM_MIN: (0.0, "Spindle minimal rotation speed, rpm"),
             GRBLSetting.LASER_MODE: (False, "Laser mode activated"),
-        }[self]
+        }
+        return all_descriptions[self]
 
     def __str__(self):
         return f"{self.description}: (default value: {self.type(self.default_value)})"

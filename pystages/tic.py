@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 
+from typing import cast
 from enum import Enum
 from time import sleep
 from .stage import Stage
@@ -241,7 +242,7 @@ class Tic(Stage):
     @position.setter
     def position(self, value: Vector) -> None:
         # To check dimension and range of the given value
-        pos_setter = Stage.position.fset
+        pos_setter = cast(property, Stage.position).fset
         assert pos_setter is not None
         pos_setter(self, value)
         x = round(value.x)

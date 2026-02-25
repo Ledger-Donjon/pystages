@@ -23,7 +23,7 @@ import serial.serialutil
 import time
 from .vector import Vector
 from .exceptions import ProtocolError, ConnectionFailure
-from enum import Enum, Flag
+from enum import Enum, IntFlag
 from typing import cast
 from .stage import Stage
 
@@ -113,6 +113,7 @@ class Link:
             except ProtocolError:
                 # Retry to send the query
                 return self.query(address, command, lazy_res)
+        return None
 
     def response(self, address: int | None, command: str) -> str:
         """
@@ -159,7 +160,7 @@ class State(int, Enum):
     JOGGING_FROM_DISABLE = 0x47
 
 
-class Error(int, Flag):
+class Error(IntFlag):
     """
     Information returned when querying positioner error.
     """
@@ -277,7 +278,7 @@ class SMC100(Stage):
     @position.setter
     def position(self, value: Vector):
         # To check dimension and range of the given value
-        pos_setter = Stage.position.fset
+        pos_setter = cast(property, Stage.position).fset
         assert pos_setter is not None
         pos_setter(self, value)
 
