@@ -84,5 +84,3 @@ class Autofocus:
     def __len__(self) -> int:
         """:return: Number of registered points."""
         return len(self.registered_points)
-
-

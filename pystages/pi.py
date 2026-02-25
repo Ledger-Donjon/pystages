@@ -25,6 +25,7 @@ from .vector import Vector
 from .stage import Stage
 from .pi_errors import PIError
 
+
 class PIReferencingMethod(int, Enum):
     """
     Enum for PI reference methods.
@@ -193,8 +194,8 @@ class PI(Stage):
         :return: True if the stage is moving, False otherwise.
         """
         for address in self.addresses:
-            #self.serial.write(f"{address} \x05".encode("utf-8"))
-            #response = self.serial.readline().decode("utf-8").strip().split(" ", 2)
+            # self.serial.write(f"{address} \x05".encode("utf-8"))
+            # response = self.serial.readline().decode("utf-8").strip().split(" ", 2)
             response = self.fast_query(address, 0x05).split(" ", 2)
             assert len(response) == 3
             assert int(response[0]) == 0
@@ -238,7 +239,9 @@ class PI(Stage):
 
         for address, method in zip(self.addresses, value):
             self.send(address, f"RON 1 {method.value}")
-            self.logger.debug(f"Set reference method for device at {address=}: {method.value=}")
+            self.logger.debug(
+                f"Set reference method for device at {address=}: {method.value=}"
+            )
 
     def fast_reference(self, negative_limit: bool = True) -> None:
         """
