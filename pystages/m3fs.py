@@ -52,7 +52,7 @@ class M3FS(Stage):
         Connect to the device. If the serial device cannot be opened, a
         ConnectionFailure exception is thrown. If the device version is not
         supported, a VersionNotSupported error is thrown.
-        Supported versions is: 4.7.3 M3-FS.
+        Supported version is: 4.7.3 M3-FS.
 
         :param dev: Serial device. For instance `'/dev/ttyUSB0'`.
             If not provided, a suitable device is searched according to

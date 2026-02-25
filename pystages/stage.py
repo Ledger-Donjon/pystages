@@ -25,6 +25,8 @@ from serial.tools.list_ports import comports
 from serial.tools.list_ports_common import ListPortInfo
 from .vector import Vector
 
+logging.basicConfig(level=logging.INFO)
+
 
 class Stage(ABC):
     """
@@ -46,7 +48,6 @@ class Stage(ABC):
         self._minimums: Vector | None = None
         self._maximums: Vector | None = None
 
-        logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(f"{self.__class__.__name__}")
 
     def find_device(

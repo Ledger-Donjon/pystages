@@ -45,7 +45,7 @@ class PI(Stage):
         self,
         dev: str | None = None,
         baudrate: int = 115200,
-        addresses: list[int] = [1],
+        addresses: list[int] | None = None,
     ) -> None:
         """
         Initialize the PI stage.
@@ -58,6 +58,9 @@ class PI(Stage):
         :param baudrate: Baudrate for the serial connection.
         :param addresses: An iterable of int controller addresses.
         """
+        if addresses is None:
+            addresses = [1]
+
         super().__init__(num_axis=len(addresses))
         self.addresses = addresses
         try:
@@ -252,7 +255,7 @@ class PI(Stage):
         limit of its travel range and sets the current position to a defined
         value.
 
-        :param address: The address of the stage.
+        :param negative_limit: If True, move to the negative limit. If False, move to the positive limit.
         """
         for address in self.addresses:
             # Set the servo mode to on (closed-loop operation)
@@ -288,8 +291,6 @@ class PI(Stage):
     def stop(self) -> None:
         """
         Stop the stage.
-
-        :param address: The address of the stage.
         """
         for address in self.addresses:
             self.send(address, "STP")

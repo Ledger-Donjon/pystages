@@ -146,7 +146,9 @@ class CNCRouter(Stage):
         type defined in :py:class:`GRBLSetting`.
         """
         if not isinstance(value, setting.type):
-            ValueError(f"The setting {setting} expects a value of type {setting.type}.")
+            raise ValueError(
+                f"The setting {setting} expects a value of type {setting.type}."
+            )
         if isinstance(value, (InvertMask, StatusReportMask)):
             # Get the int value of the flag
             value = value.value
@@ -172,9 +174,9 @@ class CNCRouter(Stage):
         for line in lines:
             key, value = line.split("=", 1)
             setting = GRBLSetting(key)
-            if isinstance(value, float):
-                value = float(value)
-                settings[setting] = value
+            if setting.type is float:
+                value_float = float(value)
+                settings[setting] = value_float
             else:
                 # For (bool, InvertMask, StatusReportMask, int) types, str must be changed to int
                 # first.
