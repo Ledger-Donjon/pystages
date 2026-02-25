@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, cast
 
 import pytest
 
@@ -20,8 +20,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 @pytest.fixture
 def enabled_stage(request: pytest.FixtureRequest) -> str | None:
-    raw = request.config.getoption("--stage")
-    if not raw:
+    raw = cast(str | None, request.config.getoption("--stage"))
+    if raw is None:
         return None
     return raw.strip().lower()
 
@@ -29,7 +29,7 @@ def enabled_stage(request: pytest.FixtureRequest) -> str | None:
 @pytest.fixture
 def require_stage(enabled_stage: str) -> Callable[[str], None]:
     def _require(stage_name: str) -> None:
-        if enabled_stage != stage_name.lower():
+        if enabled_stage.lower() != stage_name.lower():
             pytest.skip(f"Stage '{stage_name}' not enabled. Use --stage={stage_name}.")
 
     return _require
@@ -37,4 +37,4 @@ def require_stage(enabled_stage: str) -> Callable[[str], None]:
 
 @pytest.fixture
 def stage_dev(request: pytest.FixtureRequest) -> str | None:
-    return request.config.getoption("--dev")
+    return cast(str | None, request.config.getoption("--dev"))

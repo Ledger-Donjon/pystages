@@ -25,7 +25,9 @@ def test_get_position(require_stage: Callable[[str], None], stage_dev: str | Non
     position = pi.position
     print("Position:", position)
     assert len(position) == 3  # Replace with the expected number of axes
-    assert all(isinstance(p, float) for p in position)  # Replace with the expected type
+    assert all(
+        isinstance(p, float) for p in position.data
+    )  # Replace with the expected type
 
 
 def test_is_moving(require_stage: Callable[[str], None], stage_dev: str | None):
@@ -61,7 +63,7 @@ def test_fast_reference(require_stage: Callable[[str], None], stage_dev: str | N
 def test_move_random_10_times(
     require_stage: Callable[[str], None], stage_dev: str | None
 ):
-    require_stage("pi")
+    require_stage("PI")
     pi = PI(dev=stage_dev or "/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
     pi.fast_reference()
     print("Fast referencing...")
@@ -82,7 +84,7 @@ def test_move_random_10_times(
 
 
 def test_move(require_stage: Callable[[str], None], stage_dev: str | None):
-    require_stage("pi")
+    require_stage("PI")
     pi = PI(dev=stage_dev or "/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
     pi.fast_reference()
     print("Fast referencing...")
@@ -101,7 +103,7 @@ def test_move(require_stage: Callable[[str], None], stage_dev: str | None):
 
 
 def test_reference_method(require_stage: Callable[[str], None], stage_dev: str | None):
-    require_stage("pi")
+    require_stage("PI")
     pi = PI(dev=stage_dev or "/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
     print("\n" + "\n".join(m.name for m in pi.reference_methods))
 
@@ -109,15 +111,15 @@ def test_reference_method(require_stage: Callable[[str], None], stage_dev: str |
 def test_set_reference_method(
     require_stage: Callable[[str], None], stage_dev: str | None
 ):
-    require_stage("pi")
+    require_stage("PI")
     pi = PI(dev=stage_dev or "/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
-    pi.reference_methods = PIReferencingMethod.POS_ALLOWED
+    pi.reference_methods = [PIReferencingMethod.POS_ALLOWED] * len(pi.addresses)
     print("Reference methods set to:", pi.reference_methods)
     assert all(m == PIReferencingMethod.POS_ALLOWED for m in pi.reference_methods)
 
 
 def test_error(require_stage: Callable[[str], None], stage_dev: str | None):
-    require_stage("pi")
+    require_stage("PI")
     pi = PI(dev=stage_dev or "/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
     errors = pi.error()
     print("Errors:", errors)

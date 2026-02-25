@@ -245,9 +245,9 @@ class Tic(Stage):
         pos_setter = cast(property, Stage.position).fset
         assert pos_setter is not None
         pos_setter(self, value)
-        x = round(value.x)
-        self.target_position = x
-        while self.position.x != value.x:
+        target_position = round(value.x)
+        self.target_position = target_position
+        while round(self.position.x) != target_position:
             sleep(self.poll_interval)
             self.exit_safe_start()
 
