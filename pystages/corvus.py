@@ -18,9 +18,9 @@
 
 from __future__ import annotations
 
-
-import serial.serialutil
+from typing import cast
 import time
+import serial.serialutil
 from .exceptions import ConnectionFailure
 from .vector import Vector
 from .stage import Stage
@@ -182,7 +182,7 @@ class Corvus(Stage):
     @position.setter
     def position(self, value: Vector):
         # To check dimension and range of the given value
-        pos_setter = Stage.position.fset
+        pos_setter = cast(property, Stage.position).fset
         assert pos_setter is not None
         pos_setter(self, value)
 

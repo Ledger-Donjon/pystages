@@ -231,8 +231,10 @@ class CNCRouter(Stage):
         others: dict[str, object] = {}
         for key_value in [element.split(":", 1) for element in elements[1:]]:
             key = key_value[0]
-            value = None if len(key_value) == 1 else key_value[1]
-            if value is not None and "," in value:
+            value: str | list[str] | None = (
+                None if len(key_value) == 1 else key_value[1]
+            )
+            if isinstance(value, str) and "," in value:
                 value = value.split(",")
 
             others[key] = value
@@ -342,7 +344,7 @@ class CNCRouter(Stage):
     @position.setter
     def position(self, value: Vector):
         # To check dimension and range of the given value
-        pos_setter = Stage.position.fset
+        pos_setter = cast(property, Stage.position).fset
         assert pos_setter is not None
         pos_setter(self, value)
 

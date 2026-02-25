@@ -18,9 +18,9 @@
 
 from __future__ import annotations
 
-
-import serial.serialutil
+from typing import cast
 from binascii import hexlify
+import serial.serialutil
 from .exceptions import ConnectionFailure, ProtocolError, VersionNotSupported
 from .stage import Stage
 from .vector import Vector
@@ -117,18 +117,17 @@ class M3FS(Stage):
             b = self.serial.read(1)
             if len(b) != 1:
                 raise ProtocolError()
-            b = b[0]
-            if b == ord(">"):
+            if b == b">":
                 break
-            else:
-                if b == ord("\r"):
-                    raise ProtocolError()
-                result.append(b)
+            if b == b"\r":
+                raise ProtocolError()
+            result.append(int(b[0]))
+
         # Get carriage return
         b = self.serial.read(1)
         if len(b) != 1:
             raise ProtocolError()
-        if b[0] != ord("\r"):
+        if b != b"\r":
             raise ProtocolError()
         return result.decode()
 
@@ -169,14 +168,15 @@ class M3FS(Stage):
             raise ProtocolError(
                 f"Unexpected response after sending command {command}: Got response without data."
             )
-        res = list(bytes.fromhex(x) for x in res.split(" "))
-        if len(res) != 3:
+
+        res_bytes = list(bytes.fromhex(x) for x in res.split(" "))
+        if len(res_bytes) != 3:
             raise ProtocolError(
-                f"Unexpected response after sending command {command}: Expecting 3 values, got {res}."
+                f"Unexpected response after sending command {command}: Expecting 3 values, got '{res_bytes}'."
             )
-        motor_status = int.from_bytes(res[0], "big", signed=False)
-        position = int.from_bytes(res[1], "big", signed=True)
-        error = int.from_bytes(res[2], "big", signed=True)
+        motor_status = int.from_bytes(res_bytes[0], "big", signed=False)
+        position = int.from_bytes(res_bytes[1], "big", signed=True)
+        error = int.from_bytes(res_bytes[2], "big", signed=True)
         return motor_status, position, error
 
     @property
@@ -193,7 +193,7 @@ class M3FS(Stage):
     @position.setter
     def position(self, value: Vector) -> None:
         # To check dimension and range of the given value
-        pos_setter = Stage.position.fset
+        pos_setter = cast(property, Stage.position).fset
         assert pos_setter is not None
         pos_setter(self, value)
 

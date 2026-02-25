@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import serial.serialutil
 import time
+from typing import cast
 from enum import Enum
 from .exceptions import ConnectionFailure
 from .vector import Vector
@@ -156,8 +157,8 @@ class PI(Stage):
         """
         positions: list[float] = []
         for a in self.addresses:
-            response = self.query("POS", a)[0]
-            response = response.split("=")
+            res = self.query("POS", a)[0]
+            response = res.split("=")
             assert len(response) == 2
             assert int(response[0]) == 1
             positions.append(float(response[1].strip()))
@@ -166,7 +167,7 @@ class PI(Stage):
     @position.setter
     def position(self, value: Vector) -> None:
         # To check dimension and range of the given value
-        pos_setter = Stage.position.fset
+        pos_setter = cast(property, Stage.position).fset
         assert pos_setter is not None
         pos_setter(self, value)
 
