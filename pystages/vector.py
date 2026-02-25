@@ -122,7 +122,7 @@ class Vector:
             else:
                 value_list = list(value)
             for i in range(key.start, key.stop):
-                self.data[i] = value_list[i]
+                self.data[i] = value_list[i - key.start]
         else:
             if isinstance(value, list):
                 self.data[key] = value[0]

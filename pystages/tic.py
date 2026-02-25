@@ -196,11 +196,13 @@ class Tic(Stage):
 
     def home(self, wait: bool = False) -> None:
         """Triggers a Home command.
+        Note that TIC does not have a specific command to get the current moving state,
+        Thus we consider that it is always not moving, so wait parameter is not relevant
 
-        :param wait: Optionally waits for move operation to be done."""
+        :param wait: Ignored."""
+        _ = wait
+        
         self.go_home(TicDirection.REVERSE, False)
-        if wait:
-            self.wait_move_finished()
 
     def go_home(self, direction: TicDirection, wait: bool = True) -> None:
         """
