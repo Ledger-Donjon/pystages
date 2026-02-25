@@ -74,15 +74,23 @@ class Link:
         """
         # Read at least 2 bytes for CR-LF.
         response = ""
-        while True:
+        while len(response) < 1024:
+            b = self.serial.read(1)
+
+            # In case of timeout, return partial response (if any), otherwise None
+            if len(b) != 1:
+                return None if len(response) == 0 else response
+
             # Communication contains only ASCII characters, for robustness, HSBit is masked
-            c = self.serial.read(1)[0] & 0x7F
+            c = b[0] & 0x7F
             if c == ord("\n"):
                 return response
             # We may receive null characters after controller reset. Just
             # ignore it, and we will be fine, they are useless anyway.
-            elif c not in (ord("\r"), 0):
+            elif c not in [ord("\r"), ord("\0")]:
                 response += chr(c)
+
+        return response
 
     def query(
         self, address: int | None, command: str, lazy_res: bool = False
