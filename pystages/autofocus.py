@@ -16,8 +16,10 @@
 #
 # Copyright 2018-2020 Ledger SAS, written by Olivier Hériveaux
 
+from __future__ import annotations
+
 import numpy as np
-import unittest
+from typing import cast
 
 
 class Autofocus:
@@ -27,10 +29,10 @@ class Autofocus:
     other points.
     """
 
-    def __init__(self):
-        self.registered_points = []
+    def __init__(self) -> None:
+        self.registered_points: list[tuple[int | float, int | float, int | float]] = []
 
-    def register(self, x, y, z):
+    def register(self, x: int | float, y: int | float, z: int | float) -> None:
         """
         Register a new focused point.
 
@@ -40,11 +42,11 @@ class Autofocus:
         """
         self.registered_points.append((x, y, z))
 
-    def clear(self):
+    def clear(self) -> None:
         """Remove all registration points."""
         self.registered_points.clear()
 
-    def focus(self, x, y):
+    def focus(self, x: int | float, y: int | float) -> int | float:
         """
         Guess the correct focus depth given abscissa and ordinate of a new
         point. This method will raise a RuntimeError if not enough points have
@@ -63,7 +65,7 @@ class Autofocus:
         else:
             raise RuntimeError("Not enough points registered for autofocus")
 
-    def __focus_3(self, x, y):
+    def __focus_3(self, x: int | float, y: int | float) -> int | float:
         """
         Guess correct focus using 3 points.
         :param x: Abscissa of the point.
@@ -80,38 +82,8 @@ class Autofocus:
         base = np.matrix([ab[:2], ac[:2]]).T
         ap_in_base = np.array((base.I * np.matrix(ap).T).T)
         z = ab[2] * ap_in_base[0, 0] + ac[2] * ap_in_base[0, 1] + a[2]
-        return z
+        return cast(int | float, z)
 
-    def __len__(self):
+    def __len__(self) -> int:
         """:return: Number of registered points."""
         return len(self.registered_points)
-
-
-class TestAutofocus(unittest.TestCase):
-    def test_init(self):
-        af = Autofocus()
-        self.assertEqual(len(af), 0)
-
-    def test_clear(self):
-        af = Autofocus()
-        af.register(1, 2, 3)
-        self.assertEqual(len(af), 1)
-        af.clear()
-        self.assertEqual(len(af), 0)
-
-    def test_focus(self):
-        af = Autofocus()
-        with self.assertRaises(RuntimeError):
-            af.focus(3, 3)
-        af.register(2, 2, 10)
-        with self.assertRaises(RuntimeError):
-            af.focus(3, 3)
-        af.register(2, 3, 11)
-        with self.assertRaises(RuntimeError):
-            af.focus(3, 3)
-        af.register(3, 2, 11)
-        self.assertEqual(af.focus(3, 3), 12)
-
-
-if __name__ == "__main__":
-    unittest.main()

@@ -16,13 +16,15 @@
 #
 # Copyright 2018-2020 Ledger SAS, written by Olivier Hériveaux
 
+from __future__ import annotations
 
-import usb.core
-import usb.util
+
+from typing import cast
 from enum import Enum
 from time import sleep
 from .stage import Stage
 from .vector import Vector
+from usb.core import Device, find  # type: ignore
 from .exceptions import ConnectionFailure
 
 
@@ -123,24 +125,24 @@ class Tic(Stage):
      long motor operations.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
-        dev = usb.core.find(idVendor=0x1FFB, idProduct=0x00B5)
-        if isinstance(dev, usb.core.Device):
+        dev = find(idVendor=0x1FFB, idProduct=0x00B5)
+        if isinstance(dev, Device):
             self.dev = dev
         else:
             raise ConnectionFailure("Tic stepper motor not found.")
-        self.dev.set_configuration()
+        self.dev.set_configuration()  # type: ignore
         self.energize()
         self.poll_interval = 0.1
 
-    def quick(self, command: TicCommand):
+    def quick(self, command: TicCommand) -> None:
         """
         Send a quick command with no data.
 
         :param command: Command.
         """
-        self.dev.ctrl_transfer(0x40, command, 0, 0, 0)
+        self.dev.ctrl_transfer(0x40, command, 0, 0, 0)  # type: ignore
 
     def write_7(self, command: TicCommand, data: int):
         """
@@ -149,7 +151,7 @@ class Tic(Stage):
         :param command: Command.
         :param data: Value to be written.
         """
-        self.dev.ctrl_transfer(0x40, command, data, 0, 0)
+        self.dev.ctrl_transfer(0x40, command, data, 0, 0)  # type: ignore
 
     def write_32(self, command: TicCommand, data: int):
         """
@@ -158,9 +160,9 @@ class Tic(Stage):
         :param command: Command code.
         :param data: Value to be written.
         """
-        self.dev.ctrl_transfer(0x40, command, data & 0xFFFF, data >> 16, 0)
+        self.dev.ctrl_transfer(0x40, command, data & 0xFFFF, data >> 16, 0)  # type: ignore
 
-    def block_read(self, command: TicCommand, offset, length) -> bytes:
+    def block_read(self, command: TicCommand, offset: int, length: int) -> bytes:
         """
         Read data from the device.
 
@@ -168,9 +170,9 @@ class Tic(Stage):
         :param offset: Data offset.
         :param length: Data length.
         """
-        return bytes(self.dev.ctrl_transfer(0xC0, command, 0, offset, length))
+        return bytes(self.dev.ctrl_transfer(0xC0, command, 0, offset, length))  # type: ignore
 
-    def set_setting(self, command: TicCommand, data, offset):
+    def set_setting(self, command: TicCommand, data: int, offset: int) -> None:
         """
         Set setting data.
 
@@ -178,21 +180,21 @@ class Tic(Stage):
         :param data: Value to be written.
         :param offset: Write offset.
         """
-        self.dev.ctrl_transfer(0x40, command, data, offset, 0)
+        self.dev.ctrl_transfer(0x40, command, data, offset, 0)  # type: ignore
 
-    def energize(self):
+    def energize(self) -> None:
         self.quick(TicCommand.ENERGIZE)
 
-    def deenergize(self):
+    def deenergize(self) -> None:
         self.quick(TicCommand.DEENERGIZE)
 
-    def reset(self):
+    def reset(self) -> None:
         self.quick(TicCommand.RESET)
 
-    def exit_safe_start(self):
+    def exit_safe_start(self) -> None:
         self.quick(TicCommand.EXIT_SAFE_START)
 
-    def home(self, wait=False):
+    def home(self, wait: bool = False) -> None:
         """Triggers a Home command.
 
         :param wait: Optionally waits for move operation to be done."""
@@ -200,7 +202,7 @@ class Tic(Stage):
         if wait:
             self.wait_move_finished()
 
-    def go_home(self, direction: TicDirection, wait: bool = True):
+    def go_home(self, direction: TicDirection, wait: bool = True) -> None:
         """
         Run the homing procedure.
         :param direction: Homing direction.
@@ -213,10 +215,10 @@ class Tic(Stage):
                 self.exit_safe_start()
                 sleep(self.poll_interval)
 
-    def set_target_position(self, pos: int):
+    def set_target_position(self, pos: int) -> None:
         self.write_32(TicCommand.SET_TARGET_POSITION, pos)
 
-    def set_target_velocity(self, velocity: int):
+    def set_target_velocity(self, velocity: int) -> None:
         self.write_32(TicCommand.SET_TARGET_VELOCITY, velocity)
 
     def get_variable(self, variable: TicVariable) -> int:
@@ -238,13 +240,13 @@ class Tic(Stage):
         return Vector(self.get_variable(TicVariable.CURRENT_POSITION))
 
     @position.setter
-    def position(self, value: Vector):
+    def position(self, value: Vector) -> None:
         # To check dimension and range of the given value
-        pos_setter = Stage.position.fset
+        pos_setter = cast(property, Stage.position).fset
         assert pos_setter is not None
         pos_setter(self, value)
-
-        self.target_position = value.x
+        x = round(value.x)
+        self.target_position = x
         while self.position.x != value.x:
             sleep(self.poll_interval)
             self.exit_safe_start()
@@ -254,7 +256,7 @@ class Tic(Stage):
         return self.get_variable(TicVariable.TARGET_POSITION)
 
     @target_position.setter
-    def target_position(self, value: int):
+    def target_position(self, value: int) -> None:
         self.exit_safe_start()
         self.set_target_position(value)
 
