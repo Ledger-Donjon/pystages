@@ -34,6 +34,7 @@ from .stage import Stage
 # Extra status fields reported by GRBL
 StatusExtras = dict[str, list[str] | str | None]
 
+
 class CNCStatus(str, Enum):
     """
     Possible statuses that the CNC can report.
@@ -144,7 +145,7 @@ class CNCRouter(Stage):
         Set the GRBL setting of the Router with given value. The value type must correspond to
         type defined in :py:class:`GRBLSetting`.
         """
-        if setting.type != type(value):
+        if not isinstance(value, setting.type):
             ValueError(f"The setting {setting} expects a value of type {setting.type}.")
         if isinstance(value, (InvertMask, StatusReportMask)):
             # Get the int value of the flag
@@ -171,7 +172,7 @@ class CNCRouter(Stage):
         for line in lines:
             key, value = line.split("=", 1)
             setting = GRBLSetting(key)
-            if setting.type == float:
+            if isinstance(value, float):
                 value = float(value)
                 settings[setting] = value
             else:

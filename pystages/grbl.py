@@ -110,8 +110,15 @@ class GRBLSetting(str, Enum):
         return self._description[1]
 
     @property
-    def _description(self) -> tuple[float, str] | tuple[int, str] | \
-            tuple[bool, str] | tuple[StatusReportMask, str] | tuple[InvertMask, str]:
+    def _description(
+        self,
+    ) -> (
+        tuple[float, str]
+        | tuple[int, str]
+        | tuple[bool, str]
+        | tuple[StatusReportMask, str]
+        | tuple[InvertMask, str]
+    ):
         # Numbering: (type, default value, description)
         return {
             GRBLSetting.STEP_PULSE: (10.0, "Step pulse, usec"),

@@ -100,9 +100,7 @@ def test_move(require_stage: Callable[[str], None], stage_dev: str | None):
     print(f"Move to {position} finished: {pi.position}")
 
 
-def test_reference_method(
-    require_stage: Callable[[str], None], stage_dev: str | None
-):
+def test_reference_method(require_stage: Callable[[str], None], stage_dev: str | None):
     require_stage("pi")
     pi = PI(dev=stage_dev or "/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
     print("\n" + "\n".join(m.name for m in pi.reference_methods))

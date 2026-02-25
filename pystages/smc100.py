@@ -62,7 +62,7 @@ class Link:
         :param command: Command string. Don't include address nor CR LF since
             they are added automatically by this method.
         """
-        to_send = f'{"" if address is None else address}{command}\r\n'
+        to_send = f"{'' if address is None else address}{command}\r\n"
         self.serial.write(to_send.encode())
 
     def receive(self) -> str | None:
@@ -114,7 +114,7 @@ class Link:
         :param address: Controller address. int.
         :param command: Command string, without '?'.
         """
-        query_string = f'{"" if address is None else address}{command}'
+        query_string = f"{'' if address is None else address}{command}"
         res = self.receive()
         if res is None or res[: len(query_string)] != query_string:
             raise ProtocolError(query_string, res)

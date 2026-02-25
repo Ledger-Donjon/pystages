@@ -82,7 +82,6 @@ class M3FS(Stage):
         if res != "1 VER 4.7.3 M3-FS":
             raise VersionNotSupported(res)
 
-
     def __send(self, command: M3FSCommand, data: str | None = None) -> None:
         """
         Send a command to the controller.
