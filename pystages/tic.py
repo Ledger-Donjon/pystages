@@ -221,7 +221,7 @@ class Tic(Stage):
         self.exit_safe_start()
         self.write_7(TicCommand.GO_HOME, direction)
         if wait:
-            while not TicMiscFlags(
+            while TicMiscFlags(
                 self.get_variable(TicVariable.MISC_FLAGS)
             ).is_homing_active():
                 self.exit_safe_start()
