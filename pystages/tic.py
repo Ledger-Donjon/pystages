@@ -20,7 +20,7 @@ from __future__ import annotations
 
 
 from typing import cast
-from enum import Enum
+from enum import Enum, IntFlag
 from time import sleep
 from .stage import Stage
 from .vector import Vector
@@ -74,6 +74,20 @@ class TicVariable(Enum):
     AGC_CURRENT_BOOST_STEP = (0x58, 1, False)
     AGC_FREQUENCY_LIMIT = (0x59, 1, False)
     LAST_HP_DRIVER_ERRORS = (0xFF, 1, False)
+
+
+class TicMiscFlags(IntFlag):
+    ENERGIZED = 0x01
+    POSITION_UNCERTAIN = 0x02
+    FORWARD_LIMIT_ACTIVE = 0x04
+    REVERSE_LIMIT_ACTIVE = 0x08
+    HOMING_ACTIVE = 0x10
+
+    def is_energized(self) -> bool:
+        return TicMiscFlags.ENERGIZED in self
+
+    def is_homing_active(self) -> bool:
+        return TicMiscFlags.HOMING_ACTIVE in self
 
 
 class TicCommand(int, Enum):
@@ -195,14 +209,8 @@ class Tic(Stage):
         self.quick(TicCommand.EXIT_SAFE_START)
 
     def home(self, wait: bool = False) -> None:
-        """Triggers a Home command.
-        Note that TIC does not have a specific command to get the current moving state,
-        Thus we consider that it is always not moving, so wait parameter is not relevant
-
-        :param wait: Ignored."""
-        _ = wait
-
-        self.go_home(TicDirection.REVERSE, False)
+        """Triggers a Home command."""
+        self.go_home(TicDirection.REVERSE, wait=wait)
 
     def go_home(self, direction: TicDirection, wait: bool = True) -> None:
         """
@@ -213,7 +221,9 @@ class Tic(Stage):
         self.exit_safe_start()
         self.write_7(TicCommand.GO_HOME, direction)
         if wait:
-            while self.get_variable(TicVariable.MISC_FLAGS) & (1 << 4):
+            while not TicMiscFlags(
+                self.get_variable(TicVariable.MISC_FLAGS)
+            ).is_homing_active():
                 self.exit_safe_start()
                 sleep(self.poll_interval)
 
