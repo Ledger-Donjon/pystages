@@ -268,7 +268,7 @@ class StageWindow(QWidget):
         self.stage.move_to(pos)
 
     def update_stage_options(self, index: int | None = None) -> None:
-        _ = index
+        _ = index  # Parameter required by Qt signal connection; intentionally unused
         model = self.stage_selection.currentText()
         self.widget_axis.setVisible(model in [StageType.SMC, StageType.PI])
         self.lineedit_axis.setText("1, 2" if model == StageType.SMC else "1, 2, 3")

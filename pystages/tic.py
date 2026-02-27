@@ -259,9 +259,13 @@ class Tic(Stage):
         pos_setter(self, value)
         target_position = round(value.x)
         self.target_position = target_position
-        while round(self.position.x) != target_position:
+        tries = 50
+        while round(self.position.x) != target_position and tries > 0:
             sleep(self.poll_interval)
             self.exit_safe_start()
+            tries -= 1
+        if tries == 0:
+            raise TimeoutError("Failed to reach target position")
 
     @property
     def target_position(self) -> int:

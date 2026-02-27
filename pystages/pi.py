@@ -124,17 +124,19 @@ class PI(Stage):
         while True:
             _response = self.serial.readline().decode("utf-8").rstrip("\r\n")
             self.logger.debug(f"< {_response}")
-            response = _response.split(" ", 2)
-            assert (
-                len(response) == 3
-                and int(response[0]) == 0
-                and int(response[1]) == address
-            ), (
-                f"Unexpected format of response: '{_response}',"
-                f" expecting '0 {address} PAYLOAD'."
-            )
-
-            payload: str = response[2]
+            if address is not None:
+                response = _response.split(" ", 2)
+                assert (
+                    len(response) == 3
+                    and int(response[0]) == 0
+                    and int(response[1]) == address
+                ), (
+                    f"Unexpected format of response: '{_response}',"
+                    f" expecting '0 {address} PAYLOAD'."
+                )
+                payload: str = response[2]
+            else:
+                payload = _response
             responses.append(payload.strip())
             # PI GCS: trailing space before CRLF indicates more lines follow
             if not payload.endswith(" "):
@@ -315,8 +317,13 @@ class PI(Stage):
         """
         for address in self.addresses:
             try:
-                self.send(address, "POS 1 0")
+                response = self.serial.write(f"{address} POS 1 0\n".encode("utf-8"))
+                # self.send(address, "POS 1 0")
             except serial.serialutil.SerialException as exc:
                 raise ConnectionFailure(
                     f"Failed to set origin for device at address {address}"
                 ) from exc
+            if not response:
+                raise ConnectionFailure(
+                    f"No response received when setting origin for device at address {address}"
+                )
