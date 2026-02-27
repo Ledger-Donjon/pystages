@@ -126,6 +126,7 @@ def test_error(require_stage: Callable[[str], None], stage_dev: str | None):
     assert isinstance(errors, list)
     assert all(e == PIError.PI_CNTR_NO_ERROR for e in errors)
 
+
 def test_multiline_query(require_stage: Callable[[str], None], stage_dev: str | None):
     require_stage("PI")
     pi = PI(dev=stage_dev or "/dev/ttyUSB0", baudrate=115200, addresses=[1, 2, 3])
