@@ -105,12 +105,20 @@ def test_vector_add():
     v3 = v1 + v2
     assert v3.data == [9, 14, 18]
 
+    with pytest.raises(ValueError):
+        # Should raise a ValueError if the vectors have different dimensions
+        v1 += Vector(10, 20, 30, 40)
+
 
 def test_vector_sub():
     v1 = Vector(2, 3, 5)
     v2 = Vector(7, 11, 13)
     v3 = v1 - v2
     assert v3.data == [-5, -8, -8]
+
+    with pytest.raises(ValueError):
+        # Should raise a ValueError if the vectors have different dimensions
+        v1 -= Vector(10, 20, 30, 40)
 
 
 def test_vector_eq():
@@ -124,11 +132,84 @@ def test_vector_eq():
     assert Vector(1, 2, 3) != Vector(1, 2, 4)
     assert Vector(1, 2, 3) != Vector(1, 2)
 
+    assert Vector(1, 2, 3) is not None
+    assert Vector() is not None
+    assert Vector(1, 2, 3) != 42
+
 
 def test_vector_mult():
     assert Vector() * 10 == ()
     assert Vector(1) * 10 == Vector(10)
     assert Vector(1, 2, 3) * 10 == Vector(10, 20, 30)
-    assert Vector(1.0, 2.0, 3.0) / 10 == Vector(
-        1.0 * (1.0 / 10), 2.0 * (1.0 / 10), 3.0 * (1.0 / 10)
-    )
+    assert Vector(1.0, 2.0, 3.0) / 10 == Vector(1.0 / 10, 2.0 / 10, 3.0 / 10)
+
+    # Vector multiplication
+    assert Vector(1, 2, 3) * Vector(10, 20, 30) == Vector(10, 40, 90)
+
+    with pytest.raises(ValueError):
+        # Should raise a ValueError if the vectors have different dimensions
+        Vector(1, 2, 3) * Vector(10, 20, 30, 40)  # type: ignore
+
+
+def test_vector_div():
+    assert Vector() / 10 == ()
+    assert Vector(1) / 10 == Vector(1 / 10)
+    assert Vector(1, 2, 3) / 10 == Vector(1 / 10, 2 / 10, 3 / 10)
+    assert Vector(1.0, 2.0, 3.0) / 10 == Vector(1.0 / 10, 2.0 / 10, 3.0 / 10)
+
+    with pytest.raises(TypeError):
+        Vector(1, 2, 3) / Vector(10, 20, 30)  # type: ignore
+
+
+def test_vector_str():
+    assert str(Vector()) == "()"
+    assert str(Vector(1)) == "(1)"
+    assert str(Vector(1, 2, 3)) == "(1, 2, 3)"
+    assert str(Vector(1.0, 2.0, 3.0)) == "(1.0, 2.0, 3.0)"
+
+
+def test_vector_repr():
+    assert repr(Vector()) == "Vector()"
+    assert repr(Vector(1)) == "Vector(1)"
+    assert repr(Vector(1, 2, 3)) == "Vector(1, 2, 3)"
+    assert repr(Vector(1.0, 2.0, 3.0)) == "Vector(1.0, 2.0, 3.0)"
+
+
+def test_vector_len():
+    assert len(Vector()) == 0
+    assert len(Vector(1)) == 1
+    assert len(Vector(1, 2, 3)) == 3
+    assert len(Vector(1.0, 2.0, 3.0)) == 3
+
+
+def test_vector_setitem():
+    v = Vector(1, 2, 3)
+    v[0] = 10
+    assert v[0] == 10
+    assert v[1] == 2
+    assert v[2] == 3
+    v[1] = 20
+    assert v[0] == 10
+    assert v[1] == 20
+    assert v[2] == 3
+    v[2] = 30
+
+    # Should raise a TypeError if the value is a list
+    with pytest.raises(TypeError):
+        v[0] = [10, 20]  # type: ignore
+
+
+def test_vector_setitem_slice():
+    v = Vector(1, 2, 3)
+    v[1:3] = [10, 20]
+    assert v[0] == 1
+    assert v[1] == 10
+    assert v[2] == 20
+    # Should raise a TypeError
+    with pytest.raises(TypeError):
+        v[1:3] = 30  # type: ignore
+
+    # Should raise a ValueError if the number of values
+    # does not match the number of indices
+    with pytest.raises(ValueError):
+        v[1:3] = [10, 20, 30]

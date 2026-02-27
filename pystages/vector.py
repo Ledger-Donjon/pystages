@@ -120,11 +120,15 @@ class Vector:
             start, stop, step = key.indices(len(self.data))
             indices = range(start, stop, step)
             if isinstance(value, (int, float)):
-                value_list = [value] * len(indices)
-            else:
-                value_list = list(value)
+                raise TypeError(
+                    "Only list values are allowed when assigning to a slice of a Vector"
+                )
+            if len(value) != len(indices):
+                raise ValueError(
+                    f"Number of values {len(value)} does not match the number of assigned indices {len(indices)}"
+                )
             for offset, i in enumerate(indices):
-                self.data[i] = value_list[offset]
+                self.data[i] = value[offset]
         else:
             if isinstance(value, list):
                 raise TypeError(
@@ -136,7 +140,7 @@ class Vector:
         """
         :return: String representation of the vector. For instance '(1, 2, 3)'.
         """
-        return "(" + ",".join(str(x) for x in self.data) + ")"
+        return "(" + ", ".join(str(x) for x in self.data) + ")"
 
     def __add__(self, other: Vector) -> Vector:
         """
@@ -169,7 +173,7 @@ class Vector:
 
     def __repr__(self) -> str:
         """ """
-        return "Vector(" + ",".join(str(x) for x in self.data) + ")"
+        return "Vector(" + ", ".join(str(x) for x in self.data) + ")"
 
     def __eq__(self, other: object) -> bool:
         """
@@ -217,4 +221,7 @@ class Vector:
             raise TypeError(
                 "Incorrect type for second operand. int or float is expected."
             )
-        return self * (1.0 / other)
+        result = Vector(dim=len(self))
+        for i in range(len(self)):
+            result[i] = self[i] / other
+        return result
