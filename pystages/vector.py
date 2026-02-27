@@ -117,17 +117,20 @@ class Vector:
         :param value: New value.
         """
         if isinstance(key, slice):
+            start, stop, step = key.indices(len(self.data))
+            indices = range(start, stop, step)
             if isinstance(value, (int, float)):
-                value_list = [value] * (key.stop - key.start)
+                value_list = [value] * len(indices)
             else:
                 value_list = list(value)
-            for i in range(key.start, key.stop):
-                self.data[i] = value_list[i - key.start]
+            for offset, i in enumerate(indices):
+                self.data[i] = value_list[offset]
         else:
             if isinstance(value, list):
-                self.data[key] = value[0]
-            else:
-                self.data[key] = value
+                raise TypeError(
+                    "List value is not allowed when assigning to a single Vector element"
+                )
+            self.data[key] = value
 
     def __str__(self):
         """

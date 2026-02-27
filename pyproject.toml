@@ -20,7 +20,7 @@ classifiers = [
 dependencies = ["pyserial", "pyusb", "numpy", "pyqt6"]
 
 [project.optional-dependencies]
-test = ["pytest"]
+test = ["pytest", "pytest-cov"]
 lint = ["mypy", "types-pyserial"]
 
 [project.urls]
