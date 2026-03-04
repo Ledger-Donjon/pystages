@@ -192,7 +192,7 @@ class CNCRouter(Stage):
         self.send("?", eol="")
         status = self.receive()
 
-        # Retry, sometimes it does not respond
+        # Retry once if it does not respond
         if status == "":
             self.send("?", eol="")
             status = self.receive()
@@ -201,13 +201,14 @@ class CNCRouter(Stage):
         while status == "ok":
             status = self.receive()
 
-        # In the case there has been a communication error (still empty)
+        # In the case there is still no response after the OK
         if status == "":
+            self.logger.warning("Communication error, got empty payload")
             return None
 
-        # The possible outputs
-        # '<Idle|MPos:1.000,3.000,4.000|FS:0,0|WCO:0.000,0.000,0.000>'
-        # 'ALARM:1'
+        # The possible outputs:
+        # - '<Idle|MPos:1.000,3.000,4.000|FS:0,0|WCO:0.000,0.000,0.000>'
+        # - 'ALARM:1'
 
         if status.startswith("ALARM:1"):
             # The ALARM message is followed by something like
@@ -217,7 +218,7 @@ class CNCRouter(Stage):
 
         # Discard any unwanted format
         if not (status.startswith("<") and status.endswith(">")):
-            print(f"Response to '?' is unexpected: {status}")
+            self.logger.warning("Response to '?' is unexpected, got '%s'", status)
             return None
 
         # Remove the chevrons and split all pipes.
