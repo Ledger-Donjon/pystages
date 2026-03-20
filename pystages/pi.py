@@ -15,14 +15,16 @@
 #
 # Copyright 2018-2024 Ledger SAS, written by Michaël Mouchous
 
+from __future__ import annotations
+
 import serial.serialutil
 import time
-from typing import Optional, List, Union
+from typing import cast
+from enum import Enum
 from .exceptions import ConnectionFailure
 from .vector import Vector
 from .stage import Stage
 from .pi_errors import PIError
-from enum import Enum
 
 
 class PIReferencingMethod(int, Enum):
@@ -41,9 +43,9 @@ class PI(Stage):
 
     def __init__(
         self,
-        dev: Optional[str] = None,
+        dev: str | None = None,
         baudrate: int = 115200,
-        addresses: List[int] = [1],
+        addresses: list[int] | None = None,
     ) -> None:
         """
         Initialize the PI stage.
@@ -56,6 +58,9 @@ class PI(Stage):
         :param baudrate: Baudrate for the serial connection.
         :param addresses: An iterable of int controller addresses.
         """
+        if addresses is None:
+            addresses = [1]
+
         super().__init__(num_axis=len(addresses))
         self.addresses = addresses
         try:
@@ -63,12 +68,40 @@ class PI(Stage):
             self.serial = serial.Serial(dev, baudrate=baudrate, timeout=1)
         except serial.serialutil.SerialException as e:
             raise ConnectionFailure() from e
-        # print("Connected to PI stage at", dev)
+        self.logger.debug(f"Connected to PI stage at {dev=}")
         self._idns = self.idn()
 
+    def send(self, address: int | None, command: str) -> None:
+        """
+        Send a command to the stage.
+        """
+        cmd = f"{address} " if address is not None else ""
+        cmd += f"{command}\n"
+        self.logger.debug(f"> {cmd.strip()}")
+        self.serial.write(cmd.encode("utf-8"))
+
+    def fast_query(self, address: int, command: int) -> str:
+        """
+        Single-character commands, e.g., fast query commands, consist only of one ASCII
+        character.
+
+        :param address: The address of the stage.
+        :param command: The command to send.
+        :return: The response from the stage.
+        """
+        command_str = chr(command)
+        self.logger.debug(f"> {address} #{command}")
+        self.serial.write(f"{address} {command_str}".encode("utf-8"))
+        response = self.serial.readline().decode("utf-8").strip()
+        self.logger.debug(f"< {response}")
+        return response
+
     def query(
-        self, command: str, address: Optional[int] = None, args=None
-    ) -> List[str]:
+        self,
+        command: str,
+        address: int | None = None,
+        args: list[str] | None = None,
+    ) -> list[str]:
         """
         Send a command to the stage and return the response.
 
@@ -80,40 +113,43 @@ class PI(Stage):
         cmd += f"{command}?"
         cmd += " " + " ".join(args) if args else ""
         cmd += "\n"
-        # print(">", cmd.strip())
+        self.logger.debug(f"> {cmd.strip()}")
         try:
             self.serial.write(cmd.encode("utf-8"))
         except serial.serialutil.SerialException as e:
             raise ConnectionFailure(
                 f"Failed to write command '{cmd.strip()}' to the serial device."
             ) from e
-        responses = []
+        responses: list[str] = []
         while True:
-            _response = self.serial.readline().decode("utf-8").strip()
-            # print("<", repr(_response))
-            response = _response.split(" ", 2)
-            assert (
-                len(response) == 3
-                and int(response[0]) == 0
-                and int(response[1]) == address
-            ), (
-                f"Unexpected format of response: '{_response}',"
-                f" expecting '0 {address} PAYLOAD'."
-            )
-
-            payload: str = response[2].strip()
-            responses.append(payload)
-            if not payload.endswith(" \n"):
+            _response = self.serial.readline().decode("utf-8").rstrip("\r\n")
+            self.logger.debug(f"< {_response}")
+            if address is not None:
+                response = _response.split(" ", 2)
+                assert (
+                    len(response) == 3
+                    and int(response[0]) == 0
+                    and int(response[1]) == address
+                ), (
+                    f"Unexpected format of response: '{_response}',"
+                    f" expecting '0 {address} PAYLOAD'."
+                )
+                payload: str = response[2]
+            else:
+                payload = _response
+            responses.append(payload.strip())
+            # PI GCS: trailing space before CRLF indicates more lines follow
+            if not payload.endswith(" "):
                 break
         return responses
 
-    def idn(self) -> List[str]:
+    def idn(self) -> list[str]:
         """
         Get the ID of the stage.
 
         :return: The ID of the stage.
         """
-        results = []
+        results: list[str] = []
         for address in self.addresses:
             results += self.query("*IDN", address)
         return results
@@ -125,19 +161,19 @@ class PI(Stage):
 
         :return: The position of the stage.
         """
-        positions = []
+        positions: list[float] = []
         for a in self.addresses:
-            response = self.query("POS", a)[0]
-            response = response.split("=")
+            res = self.query("POS", a)[0]
+            response = res.split("=")
             assert len(response) == 2
             assert int(response[0]) == 1
             positions.append(float(response[1].strip()))
         return Vector(*positions)
 
     @position.setter
-    def position(self, value: Vector):
+    def position(self, value: Vector) -> None:
         # To check dimension and range of the given value
-        pos_setter = Stage.position.fset
+        pos_setter = cast(property, Stage.position).fset
         assert pos_setter is not None
         pos_setter(self, value)
 
@@ -154,9 +190,7 @@ class PI(Stage):
         :param address: The address of the stage.
         :param position: The position to move to.
         """
-        cmd = f"{address} MOV 1 {position}\n"
-        # print("Move command:", cmd)
-        self.serial.write(cmd.encode("utf-8"))
+        self.send(address, f"MOV 1 {position}")
 
     @property
     def is_moving(self) -> bool:
@@ -167,8 +201,9 @@ class PI(Stage):
         :return: True if the stage is moving, False otherwise.
         """
         for address in self.addresses:
-            self.serial.write(f"{address} \x05".encode("utf-8"))
-            response = self.serial.readline().decode("utf-8").strip().split(" ", 2)
+            # self.serial.write(f"{address} \x05".encode("utf-8"))
+            # response = self.serial.readline().decode("utf-8").strip().split(" ", 2)
+            response = self.fast_query(address, 0x05).split(" ", 2)
             assert len(response) == 3
             assert int(response[0]) == 0
             assert int(response[1]) == address
@@ -177,7 +212,7 @@ class PI(Stage):
         return False
 
     @property
-    def reference_methods(self):
+    def reference_methods(self) -> list[PIReferencingMethod]:
         """
         Get the reference methods.
 
@@ -186,7 +221,7 @@ class PI(Stage):
              1 (default): A referencing move must be started with FRF, FNL or FPL.
                 Using POS is not allowed.
         """
-        reference_methods: List[PIReferencingMethod] = []
+        reference_methods: list[PIReferencingMethod] = []
         for address in self.addresses:
             # 0: An absolute position value can be assigned with POS,
             #    or a referencing move can be started with FRF, FNL or FPL.
@@ -194,13 +229,13 @@ class PI(Stage):
             #    Using POS is not allowed.
             reference_method: str = self.query("RON", address)[0].split("=")[1]
             reference_methods.append(PIReferencingMethod(int(reference_method)))
-            # print(f"For device at {address}: {reference_method=}")
+            self.logger.debug(f"For device at {address}: {reference_method=}")
         return reference_methods
 
     @reference_methods.setter
     def reference_methods(
-        self, value: Union[List[PIReferencingMethod], PIReferencingMethod]
-    ):
+        self, value: list[PIReferencingMethod] | PIReferencingMethod
+    ) -> None:
         """
         Set the reference methods.
 
@@ -210,20 +245,27 @@ class PI(Stage):
             value = [value] * len(self.addresses)
 
         for address, method in zip(self.addresses, value):
-            self.serial.write(f"{address} RON 1 {method.value}\n".encode("utf-8"))
-            # print(f"Set reference method for device at {address}: {method.value=}")
+            self.send(address, f"RON 1 {method.value}")
+            self.logger.debug(
+                f"Set reference method for device at {address=}: {method.value=}"
+            )
 
-    def fast_reference(self, negative_limit=True):
+    def fast_reference(self, negative_limit: bool = True) -> None:
         """
         Perform a fast reference move.
 
-        :param address: The address of the stage.
+        Moves the specified axis to the positive or negative physical
+        limit of its travel range and sets the current position to a defined
+        value.
+
+        :param negative_limit: If True, move to the negative limit. If False, move to the positive limit.
         """
         for address in self.addresses:
-            self.serial.write(f"{address} SVO 1 1\n".encode("utf-8"))
-            self.serial.write(
-                f"{address} {'FNL' if negative_limit else 'FPL'} 1\n".encode("utf-8")
-            )
+            # Set the servo mode to on (closed-loop operation)
+            self.send(address, "SVO 1 1")
+
+            self.send(address, f"{'FNL' if negative_limit else 'FPL'} 1")
+            self.logger.debug(f"Performed fast reference for device at {address=}")
 
     def is_reference_needed(self) -> bool:
         """
@@ -238,7 +280,7 @@ class PI(Stage):
                 return True
         return False
 
-    def home(self, wait=False):
+    def home(self, wait: bool = False) -> None:
         """
         Move the stage to the home position (make a reference to low limit).
 
@@ -249,35 +291,34 @@ class PI(Stage):
             while self.is_moving:
                 time.sleep(0.1)
 
-    def stop(self):
+    def stop(self) -> None:
         """
         Stop the stage.
-
-        :param address: The address of the stage.
         """
         for address in self.addresses:
-            self.serial.write(f"{address} STP\n".encode("utf-8"))
+            self.send(address, "STP")
 
-    def error(self) -> List[PIError]:
+    def error(self) -> list[PIError]:
         """
         Get the error status of the stage.
 
         :return: The error status of the stage.
         """
-        errors = []
+        errors: list[PIError] = []
         for address in self.addresses:
             response = self.query("ERR", address)
             assert len(response) == 1
             errors.append(PIError(int(response[0])))
         return errors
 
-    def set_origin(self):
+    def set_origin(self) -> None:
         """
         Set current stage's coordinates as the new origin.
         """
         for address in self.addresses:
             try:
-                response = self.query("POS 1 0", address)
+                response = self.serial.write(f"{address} POS 1 0\n".encode("utf-8"))
+                # self.send(address, "POS 1 0")
             except serial.serialutil.SerialException as exc:
                 raise ConnectionFailure(
                     f"Failed to set origin for device at address {address}"

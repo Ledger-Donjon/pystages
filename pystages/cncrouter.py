@@ -20,9 +20,11 @@
 #
 # Copyright 2018-2023 Ledger SAS, written by Michaël Mouchous
 
+from __future__ import annotations
+
 import serial.serialutil
 import time
-from typing import Optional, Tuple, List, Union
+from typing import cast
 from .exceptions import ConnectionFailure
 from .vector import Vector
 from enum import Enum
@@ -57,7 +59,7 @@ class CNCRouter(Stage):
     Class to command CNC routers.
     """
 
-    def __init__(self, dev: Optional[str] = None, reset_wait_time=2.0):
+    def __init__(self, dev: str | None = None, reset_wait_time: float = 2.0):
         """
         Open serial device to connect to the CNC routers. Raise a
         ConnectionFailure exception if the serial device could not be open.
@@ -77,7 +79,7 @@ class CNCRouter(Stage):
             raise ConnectionFailure() from e
         self.reset_grbl()
 
-    def reset_grbl(self, wait_time: Optional[float] = None) -> bool:
+    def reset_grbl(self, wait_time: float | None = None) -> bool:
         """
         Sends a CTRL+X control to reset the GRBL
 
@@ -128,20 +130,22 @@ class CNCRouter(Stage):
 
     def get_grbl_setting(
         self, setting: GRBLSetting
-    ) -> Union[float, bool, InvertMask, StatusReportMask, int]:
+    ) -> float | bool | InvertMask | StatusReportMask | int:
         return self.get_grbl_settings()[setting]
 
     def set_grbl_setting(
         self,
         setting: GRBLSetting,
-        value: Union[float, bool, InvertMask, StatusReportMask, int],
+        value: float | bool | InvertMask | StatusReportMask | int,
     ):
         """
         Set the GRBL setting of the Router with given value. The value type must correspond to
         type defined in :py:class:`GRBLSetting`.
         """
-        if setting.type != type(value):
-            ValueError(f"The setting {setting} expects a value of type {setting.type}.")
+        if not isinstance(value, setting.type):
+            raise ValueError(
+                f"The setting {setting} expects a value of type {setting.type}."
+            )
         if isinstance(value, (InvertMask, StatusReportMask)):
             # Get the int value of the flag
             value = value.value
@@ -151,7 +155,9 @@ class CNCRouter(Stage):
         # We do nothing for int and floats.
         return self.send_receive(f"{setting.value}={value}")
 
-    def get_grbl_settings(self) -> dict:
+    def get_grbl_settings(
+        self,
+    ) -> dict[GRBLSetting, float | bool | InvertMask | StatusReportMask | int]:
         """
         Obtains and parse the list of GRBLSettings with the `$$` command.
 
@@ -159,20 +165,22 @@ class CNCRouter(Stage):
         """
         self.send("$$")
         lines = self.receive_lines()
-        settings = {}
+        settings: dict[
+            GRBLSetting, float | bool | InvertMask | StatusReportMask | int
+        ] = {}
         for line in lines:
             key, value = line.split("=", 1)
             setting = GRBLSetting(key)
-            if setting.type == float:
-                value = float(value)
-                settings[setting] = value
+            if setting.type is float:
+                value_float = float(value)
+                settings[setting] = value_float
             else:
                 # For (bool, InvertMask, StatusReportMask, int) types, str must be changed to int
                 # first.
                 settings[setting] = setting.type(int(value))
         return settings
 
-    def get_current_status(self) -> Optional[Tuple[CNCStatus, dict]]:
+    def get_current_status(self) -> tuple[CNCStatus, dict[str, object]] | None:
         """
         Sending '?' character permits to get the status of the CNC
         router
@@ -184,7 +192,7 @@ class CNCRouter(Stage):
         self.send("?", eol="")
         status = self.receive()
 
-        # Retry, sometimes it does not respond
+        # Retry once if it does not respond
         if status == "":
             self.send("?", eol="")
             status = self.receive()
@@ -193,13 +201,14 @@ class CNCRouter(Stage):
         while status == "ok":
             status = self.receive()
 
-        # In the case there has been a communication error
-        if status is None:
+        # In the case there is still no response after the OK
+        if status == "":
+            self.logger.warning("Communication error, got empty payload")
             return None
 
-        # The possible outputs
-        # '<Idle|MPos:1.000,3.000,4.000|FS:0,0|WCO:0.000,0.000,0.000>'
-        # 'ALARM:1'
+        # The possible outputs:
+        # - '<Idle|MPos:1.000,3.000,4.000|FS:0,0|WCO:0.000,0.000,0.000>'
+        # - 'ALARM:1'
 
         if status.startswith("ALARM:1"):
             # The ALARM message is followed by something like
@@ -209,7 +218,7 @@ class CNCRouter(Stage):
 
         # Discard any unwanted format
         if not (status.startswith("<") and status.endswith(">")):
-            print(f"Response to '?' is unexpected: {status}")
+            self.logger.warning("Response to '?' is unexpected, got '%s'", status)
             return None
 
         # Remove the chevrons and split all pipes.
@@ -219,18 +228,20 @@ class CNCRouter(Stage):
         cncstatus = CNCStatus(elements[0])
 
         # Next elements to be parsed as key/value pairs
-        others = {}
+        others: dict[str, object] = {}
         for key_value in [element.split(":", 1) for element in elements[1:]]:
             key = key_value[0]
-            value = None if len(key_value) == 1 else key_value[1]
-            if value is not None and "," in value:
+            value: str | list[str] | None = (
+                None if len(key_value) == 1 else key_value[1]
+            )
+            if isinstance(value, str) and "," in value:
                 value = value.split(",")
 
             others[key] = value
 
         return cncstatus, others
 
-    def send(self, command: str, eol: Optional[str] = None):
+    def send(self, command: str, eol: str | None = None) -> None:
         """
         Send a command.
 
@@ -241,7 +252,7 @@ class CNCRouter(Stage):
             eol = "\n"
         self.serial.write((command + eol).encode())
 
-    def receive_lines(self, until: str = "ok") -> List[str]:
+    def receive_lines(self, until: str = "ok") -> list[str]:
         """
         Receive multiple lines until getting as specific value.
 
@@ -249,7 +260,7 @@ class CNCRouter(Stage):
         :return: The list of all received lines. Note that the expected line is not included in the
             list.
         """
-        lines = []
+        lines: list[str] = []
         while (line := self.serial.readline().strip().decode()) != until:
             if len(line):
                 lines.append(line)
@@ -294,30 +305,55 @@ class CNCRouter(Stage):
         :getter: Query and return stage position.
         :setter: Move the stage.
         """
-        extra_dict = {}
-        # We loop until we get a current status providing 'WCO' which stores the
-        # origin.
-        while "WCO" not in extra_dict.keys():
-            current_status = self.get_current_status()
-            extra_dict = current_status[1] if current_status is not None else {}
+        max_attempts = 20  # ~1s with 50ms sleep
+        attempts = 0
+        while attempts < max_attempts:
+            status_tuple = self.get_current_status()
+            if status_tuple is None:
+                attempts += 1
+                time.sleep(0.05)
+                continue
+            extra_dict: dict[str, object] = status_tuple[1]
+            # Preferred: compute WPos = MPos - WCO when both available
+            if "WCO" in extra_dict and "MPos" in extra_dict:
+                mpos_raw = extra_dict.get("MPos")
+                wco_raw = extra_dict.get("WCO")
+                if isinstance(mpos_raw, list) and isinstance(wco_raw, list):
+                    mpos_src = cast(list[str], mpos_raw)
+                    wco_src = cast(list[str], wco_raw)
+                    mpos_list: list[float] = [float(v) for v in mpos_src]
+                    wco_list: list[float] = [float(v) for v in wco_src]
+                    mpos = Vector(*mpos_list)
+                    wco = Vector(*wco_list)
+                    return mpos - wco
+            # Fallback: if WPos is directly available, use it
+            if "WPos" in extra_dict:
+                wpos_raw = extra_dict.get("WPos")
+                if isinstance(wpos_raw, list):
+                    wpos_src = cast(list[str], wpos_raw)
+                    wpos_list: list[float] = [float(v) for v in wpos_src]
+                    return Vector(*wpos_list)
+            attempts += 1
+            time.sleep(0.05)
 
-        mpos = Vector(*tuple(float(x) for x in extra_dict["MPos"]))
-        wco = Vector(*tuple(float(x) for x in extra_dict["WCO"]))
-
-        return mpos - wco
+        # If we reach here, we were unable to retrieve a usable status
+        raise ConnectionFailure(
+            "Unable to read CNC position: status unavailable or missing fields."
+        )
 
     @position.setter
     def position(self, value: Vector):
         # To check dimension and range of the given value
-        pos_setter = Stage.position.fset
+        pos_setter = cast(property, Stage.position).fset
         assert pos_setter is not None
         pos_setter(self, value)
 
-        command = f"G0 X{value.x}"
-        if len(value) > 1:
-            command += f" Y{value.y}"
-        if len(value) > 2:
-            command += f" Z{value.z}"
+        coords: list[float] = [float(v) for v in cast(list[float], value.data)]
+        command = f"G0 X{coords[0]}"
+        if len(coords) > 1:
+            command += f" Y{coords[1]}"
+        if len(coords) > 2:
+            command += f" Z{coords[2]}"
         self.send_receive(command)
 
     @property
@@ -328,9 +364,14 @@ class CNCRouter(Stage):
         :return: True if the CNC reports that a cycle is running (Run) or
             if it is in a middle of a homing cycle (Home).
         """
-        while (status := self.get_current_status()) is None:
-            pass
-        return status[0] in [CNCStatus.RUN, CNCStatus.HOME]
+        # Avoid busy-wait infinite loop if the device is unresponsive
+        for _ in range(10):
+            status = self.get_current_status()
+            if status is not None:
+                return status[0] in [CNCStatus.RUN, CNCStatus.HOME]
+            time.sleep(0.05)
+        # If status is consistently unavailable, consider not moving
+        return False
 
     def set_origin(self) -> str:
         """
@@ -340,7 +381,7 @@ class CNCRouter(Stage):
         """
         return self.send_receive("G92 X0 Y0 Z0")
 
-    def home(self, wait=False):
+    def home(self, wait: bool = False):
         """
         Sends a `$H` command. The stage responds a message `[MSG:Sleeping]` after `ok`.
         Take caution for collisions before calling this method !

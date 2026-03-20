@@ -1,5 +1,5 @@
 #!/bin/python3
-from typing import Optional
+from __future__ import annotations
 from PyQt6.QtWidgets import (
     QWidget,
     QHBoxLayout,
@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
     QCheckBox,
     QLineEdit,
 )
-from PyQt6.QtCore import QObject, QTimer, QLocale, QCoreApplication
+from PyQt6.QtCore import QTimer, QLocale, QCoreApplication
 from PyQt6.QtGui import QDoubleValidator
 from ..cncrouter import CNCRouter
 from ..corvus import Corvus
@@ -33,65 +33,25 @@ class StageType(str, Enum):
 
 
 class StageWindow(QWidget):
-    def set_controls_enabled(self, enabled: bool):
-        for c in self.controls:
-            c.setEnabled(enabled)
-
-    def connect(self, on_off):
-        if on_off:
-            selected = self.stage_selection.currentText()
-            port = self.port_selection.currentData()
-            dev = port.device if isinstance(port, ListPortInfo) else None
-
-            # Instanciate stage according to current stage selection
-            if selected == StageType.CNC:
-                self.stage = CNCRouter(dev)
-            elif selected == StageType.Corvus:
-                self.stage = Corvus(dev)
-            elif selected == StageType.SMC:
-                axis = [int(x) for x in self.lineedit_axis.text().split(",")]
-                self.stage = SMC100(dev, axis)
-            elif selected == StageType.M3FS:
-                self.stage = M3FS(dev, baudrate=115200)
-            elif selected == StageType.PI:
-                axis = [int(x) for x in self.lineedit_axis.text().split(",")]
-                self.stage = PI(dev, addresses=axis)
-            self.position_timer.start(100)
-
-        else:
-            del self.stage
-            self.stage = None
-
-            self.position_timer.stop()
-
-        self.stage_selection.setDisabled(on_off)
-        self.port_selection.setDisabled(on_off)
-        self.lineedit_axis.setDisabled(on_off)
-
-        self.set_controls_enabled(on_off)
-
-        if self.stage is not None:
-            self.stage.wait_routine = lambda: QCoreApplication.processEvents()
-
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
         # Current stage
-        self.stage: Optional[Stage] = None
+        self.stage: Stage | None = None
 
         # This flag is used to limit the communication
         # with the stage by not making updates of the position
         self.in_motion = False
 
         # Moving controls
-        self.controls = []
+        self.controls: list[QWidget] = []
 
         vbox = QVBoxLayout()
         self.setLayout(vbox)
 
         box = QHBoxLayout()
         vbox.addLayout(box)
-        w = QLabel("Stage Selection")
+        w: QWidget = QLabel("Stage Selection")
         box.addWidget(w)
         self.stage_selection = w = QComboBox()
         w.addItems(
@@ -213,6 +173,46 @@ class StageWindow(QWidget):
         self.position_timer = QTimer()
         self.position_timer.timeout.connect(self.update_position)
 
+    def connect(self, on_off: bool) -> None:
+        if on_off:
+            selected = self.stage_selection.currentText()
+            port = self.port_selection.currentData()
+            dev = port.device if isinstance(port, ListPortInfo) else None
+
+            # Instanciate stage according to current stage selection
+            if selected == StageType.CNC:
+                self.stage = CNCRouter(dev)
+            elif selected == StageType.Corvus:
+                self.stage = Corvus(dev)
+            elif selected == StageType.SMC:
+                axis = [int(x) for x in self.lineedit_axis.text().split(",")]
+                self.stage = SMC100(dev, axis)
+            elif selected == StageType.M3FS:
+                self.stage = M3FS(dev, baudrate=115200)
+            elif selected == StageType.PI:
+                axis = [int(x) for x in self.lineedit_axis.text().split(",")]
+                self.stage = PI(dev, addresses=axis)
+            self.position_timer.start(100)
+
+        else:
+            del self.stage
+            self.stage = None
+
+            self.position_timer.stop()
+
+        self.stage_selection.setDisabled(on_off)
+        self.port_selection.setDisabled(on_off)
+        self.lineedit_axis.setDisabled(on_off)
+
+        self.set_controls_enabled(on_off)
+
+        if self.stage is not None:
+            self.stage.wait_routine = lambda: QCoreApplication.processEvents()
+
+    def set_controls_enabled(self, enabled: bool) -> None:
+        for c in self.controls:
+            c.setEnabled(enabled)
+
     def update_position(self):
         if self.stage is None or self.in_motion:
             return
@@ -223,7 +223,7 @@ class StageWindow(QWidget):
         if self.stage is None:
             return
         self.in_motion = True
-        button = QObject().sender()
+        button = self.sender()
         assert isinstance(button, QPushButton)
         axe, direction = button.text()
         axe = {"X": 0, "Y": 1, "Z": 2}[axe]
@@ -267,7 +267,8 @@ class StageWindow(QWidget):
         pos.z = z
         self.stage.move_to(pos)
 
-    def update_stage_options(self, index):
+    def update_stage_options(self, index: int | None = None) -> None:
+        _ = index  # Parameter required by Qt signal connection; intentionally unused
         model = self.stage_selection.currentText()
         self.widget_axis.setVisible(model in [StageType.SMC, StageType.PI])
         self.lineedit_axis.setText("1, 2" if model == StageType.SMC else "1, 2, 3")

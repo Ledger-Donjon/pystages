@@ -4,22 +4,32 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pystages"
-version = "1.3"
+version = "1.4"
 authors = [
   { name = "Olivier Hérivaux", email = "olivier.heriveaux@ledger.fr" },
   { name = "Michaël Mouchous", email = "michael.mouchous@ledger.fr" },
 ]
 description = "Motorized stage control library for scientific applications"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
   "Programming Language :: Python :: 3",
-  "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
   "Operating System :: OS Independent",
 ]
+license = "LGPL-3.0-only"
 dependencies = ["pyserial", "pyusb", "numpy", "pyqt6"]
+
+[project.optional-dependencies]
+test = ["pytest", "pytest-cov"]
+lint = ["mypy", "types-pyserial"]
 
 [project.urls]
 "Homepage" = "https://github.com/Ledger-Donjon/pystages"
 "Bug Tracker" = "https://github.com/Ledger-Donjon/pystages/issues"
 "Documentation" = "https://pystages.readthedocs.io/en/latest"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true

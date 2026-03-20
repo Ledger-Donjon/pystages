@@ -25,7 +25,7 @@ copyright = "2024, Olivier Hériveaux, Manuel San Pedro, Michaël Mouchous"
 author = "Olivier Hériveaux, Manuel San Pedro, Michaël Mouchous"
 
 # The full version, including alpha/beta/rc tags
-release = "1.3"
+release = "1.4"
 
 
 # -- General configuration ---------------------------------------------------
@@ -54,7 +54,7 @@ html_theme = "sphinx_rtd_theme"
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = []
+html_static_path: list[str] = []
 
 html_logo = "logo.png"
 

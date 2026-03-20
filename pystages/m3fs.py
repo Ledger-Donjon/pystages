@@ -16,10 +16,11 @@
 #
 # Copyright 2018-2020 Ledger SAS, written by Olivier Hériveaux
 
+from __future__ import annotations
 
-from typing import Optional
-import serial.serialutil
+from typing import cast
 from binascii import hexlify
+import serial.serialutil
 from .exceptions import ConnectionFailure, ProtocolError, VersionNotSupported
 from .stage import Stage
 from .vector import Vector
@@ -46,15 +47,14 @@ class M3FS(Stage):
     correct VID/DID).
     """
 
-    def __init__(self, dev: Optional[str] = None, baudrate=250000):
+    def __init__(self, dev: str | None = None, baudrate: int = 250000):
         """
         Connect to the device. If the serial device cannot be opened, a
         ConnectionFailure exception is thrown. If the device version is not
         supported, a VersionNotSupported error is thrown.
+        Supported version is: 4.7.3 M3-FS.
 
         :param dev: Serial device. For instance `'/dev/ttyUSB0'`.
-            If not provided, a suitable device is searched according to
-            according to vendor and product IDs
         :param baudrate: Serial baudrate.
         """
         super().__init__()
@@ -74,10 +74,13 @@ class M3FS(Stage):
         except ProtocolError as e:
             raise ConnectionFailure() from e
         self.serial.timeout = None
+        if res is None:
+            raise ConnectionFailure("No response from the device")
+
         if res != "1 VER 4.7.3 M3-FS":
             raise VersionNotSupported(res)
 
-    def __send(self, command: M3FSCommand, data: Optional[str] = None):
+    def __send(self, command: M3FSCommand, data: str | None = None) -> None:
         """
         Send a command to the controller.
 
@@ -94,7 +97,7 @@ class M3FS(Stage):
         full_command += ">\r"
         self.serial.write(full_command.encode())
 
-    def __receive(self):
+    def __receive(self) -> str:
         """
         Read next response from the controller.
 
@@ -112,22 +115,21 @@ class M3FS(Stage):
             b = self.serial.read(1)
             if len(b) != 1:
                 raise ProtocolError()
-            b = b[0]
-            if b == ord(">"):
+            if b == b">":
                 break
-            else:
-                if b == ord("\r"):
-                    raise ProtocolError()
-                result.append(b)
+            if b == b"\r":
+                raise ProtocolError()
+            result.append(int(b[0]))
+
         # Get carriage return
         b = self.serial.read(1)
         if len(b) != 1:
             raise ProtocolError()
-        if b[0] != ord("\r"):
+        if b != b"\r":
             raise ProtocolError()
         return result.decode()
 
-    def command(self, command: M3FSCommand, data=None):
+    def command(self, command: M3FSCommand, data: str | None = None) -> str | None:
         """
         Send a command to the controller and get the response.
 
@@ -152,7 +154,7 @@ class M3FS(Stage):
                 )
             return res[3:]
 
-    def __get_closed_loop_status(self):
+    def __get_closed_loop_status(self) -> tuple[int, int, int]:
         """
         Query closed-loop status and position.
 
@@ -164,14 +166,15 @@ class M3FS(Stage):
             raise ProtocolError(
                 f"Unexpected response after sending command {command}: Got response without data."
             )
-        res = list(bytes.fromhex(x) for x in res.split(" "))
-        if len(res) != 3:
+
+        res_bytes = list(bytes.fromhex(x) for x in res.split(" "))
+        if len(res_bytes) != 3:
             raise ProtocolError(
-                f"Unexpected response after sending command {command}: Expecting 3 values, got {res}."
+                f"Unexpected response after sending command {command}: Expecting 3 values, got '{res_bytes}'."
             )
-        motor_status = int.from_bytes(res[0], "big", signed=False)
-        position = int.from_bytes(res[1], "big", signed=True)
-        error = int.from_bytes(res[2], "big", signed=True)
+        motor_status = int.from_bytes(res_bytes[0], "big", signed=False)
+        position = int.from_bytes(res_bytes[1], "big", signed=True)
+        error = int.from_bytes(res_bytes[2], "big", signed=True)
         return motor_status, position, error
 
     @property
@@ -186,9 +189,9 @@ class M3FS(Stage):
         return Vector(position * self.resolution_um)
 
     @position.setter
-    def position(self, value: Vector):
+    def position(self, value: Vector) -> None:
         # To check dimension and range of the given value
-        pos_setter = Stage.position.fset
+        pos_setter = cast(property, Stage.position).fset
         assert pos_setter is not None
         pos_setter(self, value)
 

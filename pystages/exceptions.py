@@ -16,9 +16,10 @@
 #
 # Copyright 2018 Ledger SAS, written by Olivier Hériveaux
 
-
 # This file regroups a set of exception classes used by the different stage
 # implementations
+
+from __future__ import annotations
 
 
 class ConnectionFailure(Exception):
@@ -26,7 +27,7 @@ class ConnectionFailure(Exception):
 
 
 class ProtocolError(Exception):
-    def __init__(self, query=None, response=None):
+    def __init__(self, query: str | None = None, response: str | None = None):
         super().__init__(",".join([repr(query), repr(response)]))
         self.query = query
         self.response = response
@@ -36,8 +37,8 @@ class ProtocolError(Exception):
 
 
 class VersionNotSupported(Exception):
-    def __init__(self, version):
+    def __init__(self, version: str):
         self.version = version
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.version

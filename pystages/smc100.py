@@ -17,13 +17,14 @@
 # Copyright 2018-2022 Ledger SAS,
 # written by Olivier Hériveaux, Manuel San Pedro and Michaël Mouchous
 
+from __future__ import annotations
 
 import serial.serialutil
 import time
 from .vector import Vector
 from .exceptions import ProtocolError, ConnectionFailure
-from enum import Enum, Flag
-from typing import Optional, List, Union
+from enum import Enum, IntFlag
+from typing import cast
 from .stage import Stage
 
 
@@ -42,7 +43,7 @@ class Link:
     controller in the daisy chain is always zero.
     """
 
-    def __init__(self, dev: Optional[str] = None):
+    def __init__(self, dev: str | None = None):
         """
         :param dev: Serial device. For instance `'/dev/ttyUSB0'`.
             If not provided, a suitable device is searched according to
@@ -53,7 +54,7 @@ class Link:
         except serial.serialutil.SerialException as e:
             raise ConnectionFailure() from e
 
-    def send(self, address: Optional[int], command: str):
+    def send(self, address: int | None, command: str) -> None:
         """
         Send a command to a controller.
 
@@ -61,10 +62,10 @@ class Link:
         :param command: Command string. Don't include address nor CR LF since
             they are added automatically by this method.
         """
-        to_send = f'{"" if address is None else address}{command}\r\n'
+        to_send = f"{'' if address is None else address}{command}\r\n"
         self.serial.write(to_send.encode())
 
-    def receive(self) -> Optional[str]:
+    def receive(self) -> str | None:
         """
         Read input serial buffer to get a response. Blocks until a response is
         available.
@@ -73,19 +74,27 @@ class Link:
         """
         # Read at least 2 bytes for CR-LF.
         response = ""
-        while True:
+        while len(response) < 1024:
+            b = self.serial.read(1)
+
+            # In case of timeout, return partial response (if any), otherwise None
+            if len(b) != 1:
+                return None if len(response) == 0 else response
+
             # Communication contains only ASCII characters, for robustness, HSBit is masked
-            c = self.serial.read(1)[0] & 0x7F
+            c = b[0] & 0x7F
             if c == ord("\n"):
                 return response
             # We may receive null characters after controller reset. Just
             # ignore it, and we will be fine, they are useless anyway.
-            elif c not in (ord("\r"), 0):
+            elif c not in [ord("\r"), ord("\0")]:
                 response += chr(c)
 
+        return response
+
     def query(
-        self, address: Optional[int], command: str, lazy_res: bool = False
-    ) -> Optional[str]:
+        self, address: int | None, command: str, lazy_res: bool = False
+    ) -> str | None:
         """
         Send a query.
 
@@ -104,8 +113,9 @@ class Link:
             except ProtocolError:
                 # Retry to send the query
                 return self.query(address, command, lazy_res)
+        return None
 
-    def response(self, address: Optional[int], command: str) -> str:
+    def response(self, address: int | None, command: str) -> str:
         """
         Get and return the response of a query. Parameters are required to
         check the header of the response.
@@ -113,7 +123,7 @@ class Link:
         :param address: Controller address. int.
         :param command: Command string, without '?'.
         """
-        query_string = f'{"" if address is None else address}{command}'
+        query_string = f"{'' if address is None else address}{command}"
         res = self.receive()
         if res is None or res[: len(query_string)] != query_string:
             raise ProtocolError(query_string, res)
@@ -150,7 +160,7 @@ class State(int, Enum):
     JOGGING_FROM_DISABLE = 0x47
 
 
-class Error(int, Flag):
+class Error(IntFlag):
     """
     Information returned when querying positioner error.
     """
@@ -173,21 +183,18 @@ class ErrorAndState:
     Information returned when querying positioner error and controller state.
     """
 
-    state = State.NOT_REFERENCED_FROM_RESET
-    error = Error.NO_ERROR
+    state: State = State.NOT_REFERENCED_FROM_RESET
+    error: Error = Error.NO_ERROR
 
     @property
     def is_referenced(self) -> bool:
         """
         :return: True if state is not one of the NOT_REFERENCED_x states.
         """
-        if self.state is None:
-            raise RuntimeError("state not available")
-        else:
-            return not (
-                (self.state >= State.NOT_REFERENCED_FROM_RESET)
-                and (self.state <= State.NOT_REFERENCED_FROM_JOGGING)
-            )
+        return not (
+            (self.state >= State.NOT_REFERENCED_FROM_RESET)
+            and (self.state <= State.NOT_REFERENCED_FROM_JOGGING)
+        )
 
     @property
     def is_ready(self) -> bool:
@@ -226,13 +233,11 @@ class SMC100(Stage):
     Class to command Newport SMC100 controllers.
     """
 
-    def __init__(self, dev: Optional[Union[str, Link, "SMC100"]], addresses: List[int]):
+    def __init__(self, dev: str | Link | SMC100 | None, addresses: list[int]):
         """
         :param dev: Serial device string (for instance `'/dev/ttyUSB0'` or
             'COM0'), an instance of Link, or an instance of SMC100 sharing
             the same serial device.
-            If not provided, a suitable device is searched according to
-            according to vendor and product IDs
         :param addresses: An iterable of int controller addresses.
         """
         super().__init__(num_axis=len(addresses))
@@ -252,7 +257,7 @@ class SMC100(Stage):
             self.link.query(addr, "TS")
 
     @property
-    def position(self):
+    def position(self) -> Vector:
         """
         Stage position, in micrometers.
 
@@ -273,18 +278,19 @@ class SMC100(Stage):
     @position.setter
     def position(self, value: Vector):
         # To check dimension and range of the given value
-        pos_setter = Stage.position.fset
+        pos_setter = cast(property, Stage.position).fset
         assert pos_setter is not None
         pos_setter(self, value)
 
         # Enable the motors
         self.is_disabled = False
-        commands = []
-        for position, addr in zip(value.data, self.addresses):
+        commands: list[str] = []
+        coords: list[float] = [float(v) for v in cast(list[float], value.data)]
+        for position, addr in zip(coords, self.addresses):
             commands.append(f"{addr}PA{position:.5f}")
         self.link.send(None, "\r\n".join(commands))
 
-    def home(self, wait=False):
+    def home(self, wait: bool = False) -> None:
         """
         Perform home search.
 
@@ -294,7 +300,7 @@ class SMC100(Stage):
         if wait:
             self.wait_move_finished()
 
-    def home_search(self):
+    def home_search(self) -> None:
         """
         Perform home search.
         Home search is performed even if the axes are already referenced.
@@ -306,7 +312,7 @@ class SMC100(Stage):
             self.get_error_and_state(addr=addr)
             self.link.send(addr, "OR")
 
-    def home_search_if_required(self):
+    def home_search_if_required(self) -> None:
         """
         Perform home search for all axes which are not referenced.
         """
@@ -315,7 +321,7 @@ class SMC100(Stage):
             if not state.is_referenced:
                 self.link.send(addr, "OR")
 
-    def get_error_and_state(self, addr: int):
+    def get_error_and_state(self, addr: int) -> ErrorAndState:
         """
         Query current motion controller errors and state.
         Querying the error and state may clear error flags.
@@ -331,18 +337,18 @@ class SMC100(Stage):
         result.state = State(int(res[4:], 16))
         return result
 
-    def enter_configuration_state(self, addr: int):
+    def enter_configuration_state(self, addr: int) -> None:
         """Enter configuration state."""
         self.link.send(addr, "PW1")
 
-    def leave_configuration_state(self, addr):
+    def leave_configuration_state(self, addr: int) -> None:
         """
         Leave configuration state. If defined parameters are valid, the
         controller saves them in the flash memory.
         """
         self.link.send(addr, "PW0")
 
-    def controller_address(self, addr: int):
+    def controller_address(self, addr: int) -> int:
         """
         Get controller's RS-485 address. int in [2, 31].
         """
@@ -351,7 +357,7 @@ class SMC100(Stage):
             raise ProtocolError("SA")
         return int(res)
 
-    def set_controller_address(self, addr: int, value: int):
+    def set_controller_address(self, addr: int, value: int) -> None:
         """
         Set controller's RS-485 address. int in [2, 31].
         Changing the address is only possible when the controller is in
@@ -361,7 +367,7 @@ class SMC100(Stage):
             raise ValueError("Invalid controller address")
         self.link.send(addr, f"SA{value}")
 
-    def move_relative(self, addr: int, offset: float):
+    def move_relative(self, addr: int, offset: float) -> None:
         """
         Moves relatively an axis from a given offset
 
@@ -372,7 +378,7 @@ class SMC100(Stage):
         self.is_disabled = False
         self.link.send(addr, f"PR{offset:.5f}")
 
-    def stop(self, addr: Optional[int] = None):
+    def stop(self, addr: int | None = None) -> None:
         """
         Stops the motion on an axis. On all axis if addr not specified.
 
@@ -380,7 +386,7 @@ class SMC100(Stage):
         """
         self.link.send(addr, "ST")
 
-    def reset(self, addr: Optional[int] = None):
+    def reset(self, addr: int | None = None) -> None:
         """
         Resets the controller at specified address. For all controllers if not specified
 
@@ -389,7 +395,7 @@ class SMC100(Stage):
         for addr in self.addresses if addr is None else [addr]:
             self.link.send(addr, "RS")
 
-    def set_position(self, addr: int, value: float, blocking=True):
+    def set_position(self, addr: int, value: float, blocking: bool = True):
         """
         Sets the position of a single axis
 
@@ -437,7 +443,7 @@ class SMC100(Stage):
         # self.is_disabled = True makes enter DISABLE state
         self.enter_leave_disable_state(None, enter=value)
 
-    def enter_leave_disable_state(self, addr: Optional[int], enter: bool = True):
+    def enter_leave_disable_state(self, addr: int | None, enter: bool = True) -> None:
         """
         Permits for a specified axis to enter or leave the DISABLE state.
         DISABLE state makes the motor not energized and opens the control loop.

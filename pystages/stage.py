@@ -16,10 +16,14 @@
 #
 # Copyright 2018-2022 Ledger SAS, written by Michaël Mouchous
 
-from .vector import Vector
-from typing import Optional, Callable
+from __future__ import annotations
+
+import logging
+from typing import Callable
 from abc import ABC, abstractmethod
 from serial.tools.list_ports import comports
+from serial.tools.list_ports_common import ListPortInfo
+from .vector import Vector
 
 
 class Stage(ABC):
@@ -28,7 +32,7 @@ class Stage(ABC):
     behavior and value checking for getting and setting position, setting software limits...
     """
 
-    def __init__(self, num_axis=1):
+    def __init__(self, num_axis: int = 1):
         """
         :param num_axis: The number of axis of the stage, can be updated or set after initialization
             of the object.
@@ -36,17 +40,19 @@ class Stage(ABC):
         self.num_axis = num_axis
         # The wait routine is a function that is called when the wait_move_finished is looping.
         # It can be used to add some temporization and/or UI updates.
-        self.wait_routine: Optional[Callable] = None
+        self.wait_routine: Callable[[], None] | None = None
 
         # Minimum and maximum software limits
-        self._minimums: Optional[Vector] = None
-        self._maximums: Optional[Vector] = None
+        self._minimums: Vector | None = None
+        self._maximums: Vector | None = None
+
+        self.logger = logging.getLogger(f"{self.__class__.__name__}")
 
     def find_device(
         self,
-        pid: Optional[int] = None,
-        vid: Optional[int] = None,
-        serial_number: Optional[str] = None,
+        pid: int | None = None,
+        vid: int | None = None,
+        serial_number: str | None = None,
     ) -> str:
         """
         Find automatically one device according to given information in parameters
@@ -57,7 +63,7 @@ class Stage(ABC):
             must have a serial number and matches the given value.
         :return: The device path to the communication port.
         """
-        possible_ports = []
+        possible_ports: list[ListPortInfo] = []
         for port in comports():
             if serial_number is not None:
                 if port.serial_number == serial_number:
@@ -153,40 +159,47 @@ class Stage(ABC):
             )
 
         for i in range(len(value)):
-            if mins[i] is not None and value[i] < mins[i]:
+            if value[i] < mins[i]:
                 raise ValueError(
                     f"Invalid value for dimension {i}: {value[i]} "
                     f"is smaller that minimum {mins[i]}."
                 )
-            if maxs[i] is not None and value[i] > maxs[i]:
+            if value[i] > maxs[i]:
                 raise ValueError(
                     f"Invalid value for dimension {i}: {value[i]} "
                     f"is greater that maximum {maxs[i]}."
                 )
 
     @property
-    def minimums(self) -> Optional[Vector]:
+    def minimums(self) -> Vector | None:
         return self._minimums
 
     @minimums.setter
-    def minimums(self, value: Optional[Vector]):
+    def minimums(self, value: Vector | None):
         if value is not None:
             self.check_dimension(value)
         self._minimums = value
 
     @property
-    def maximums(self) -> Optional[Vector]:
+    def maximums(self) -> Vector | None:
         return self._maximums
 
     @maximums.setter
-    def maximums(self, value: Optional[Vector]):
+    def maximums(self, value: Vector | None):
         if value is not None:
             self.check_dimension(value)
         self._maximums = value
 
-    def home(self, wait=False):
+    def home(self, wait: bool = False) -> None:
         """Triggers a homing command.
 
         :param wait: Optionally waits for move operation to be done.
         """
         self.move_to(Vector(dim=self.num_axis), wait=wait)
+
+    def set_origin(self) -> str | None:
+        """
+        Set current stage's coordinates as the new device's origin.
+        May not be available for all stages, and have permanent effect.
+        """
+        return None
