@@ -36,6 +36,7 @@ class ProtocolError(Exception):
         super().__init__(",".join([repr(query), repr(response)]))
         self.query = query
         self.response = response
+        self.expected = expected
 
     def __str__(self):
         return f"ProtocolError(query={repr(self.query)}, response={repr(self.response)}, expected={repr(self.expected)})"

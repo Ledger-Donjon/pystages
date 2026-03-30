@@ -100,15 +100,20 @@ class PI(Stage):
                 query=f"{address} #{command}",
                 response=response,
             )
-        if int(response_list[0]) != 0:
+        try:
+            sender_address = int(response_list[0])
+            target_address = int(response_list[1])
+        except ValueError:
             raise ProtocolError(
                 query=f"{address} #{command}",
                 response=response,
+                expected="Sender's or target's address formatted as an integer",
             )
-        if int(response_list[1]) != address:
+        if sender_address != 0 or target_address != address:
             raise ProtocolError(
                 query=f"{address} #{command}",
                 response=response,
+                expected=f"Sender's address 0 and target's address {address}",
             )
         return response_list
 
@@ -148,14 +153,26 @@ class PI(Stage):
                 # 0: Sender address of the query (PC, always 0)
                 # 1: Target address of the query (PI GCS)
                 # 2: Payload
-                if (
-                    len(response) != 3
-                    or int(response[0]) != 0
-                    or int(response[1]) != address
-                ):
+                if len(response) != 3:
                     raise ProtocolError(
                         query=cmd,
                         response=_response,
+                        expected="3 parts in the response, separated by spaces",
+                    )
+                try:
+                    sender_address = int(response[0])
+                    target_address = int(response[1])
+                except ValueError:
+                    raise ProtocolError(
+                        query=cmd,
+                        response=_response,
+                        expected="Sender's or target's address formatted as an integer",
+                    )
+                if sender_address != 0 or target_address != address:
+                    raise ProtocolError(
+                        query=cmd,
+                        response=_response,
+                        expected=f"Sender's address 0 and target's address {address}",
                     )
 
                 payload: str = response[2]
@@ -191,9 +208,9 @@ class PI(Stage):
             response = res.split("=")
             if len(response) != 2 or int(response[0]) != 1:
                 raise ProtocolError(
-                    query=f"{a} POS",
+                    query=f"{a} POS?",
                     response=res,
-                    expected="1=POSITION",
+                    expected="2 parts in the response, separated by =, with the first part being '1'",
                 )
             positions.append(float(response[1].strip()))
         return Vector(*positions)
