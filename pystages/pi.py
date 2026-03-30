@@ -141,8 +141,13 @@ class PI(Stage):
         while True:
             _response = self.serial.readline().decode("utf-8").rstrip("\r\n")
             self.logger.debug(f"< {_response}")
-            if address is not None:
+            if address is not None and len(responses) == 0:
                 response = _response.split(" ", 2)
+                # In the case the query contains a specific Target address,
+                # the first line of the response is split into 3 parts:
+                # 0: Sender address of the query (PC, always 0)
+                # 1: Target address of the query (PI GCS)
+                # 2: Payload
                 if (
                     len(response) != 3
                     or int(response[0]) != 0
@@ -152,6 +157,7 @@ class PI(Stage):
                         query=cmd,
                         response=_response,
                     )
+
                 payload: str = response[2]
             else:
                 payload = _response
@@ -325,8 +331,26 @@ class PI(Stage):
         errors: list[PIError] = []
         for address in self.addresses:
             response = self.query("ERR", address)
-            assert len(response) == 1
-            errors.append(PIError(int(response[0])))
+            if len(response) != 1:
+                raise ProtocolError(
+                    query=f"{address} ERR?",
+                    response=" ".join(response),
+                )
+            try:
+                error_code_int = int(response[0])
+            except ValueError:
+                raise ProtocolError(
+                    query=f"{address} ERR?",
+                    response=response[0],
+                    expected="'ERROR', with ERROR being an integer",
+                )
+            if error_code_int not in PIError.__members__.values():
+                raise ProtocolError(
+                    query=f"{address} ERR?",
+                    response=response[0],
+                    expected=f"An integer within the list of {list(PIError.__members__.values())}",
+                )
+            errors.append(PIError(error_code_int))
         return errors
 
     def set_origin(self) -> None:
