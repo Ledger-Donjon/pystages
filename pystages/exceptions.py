@@ -38,9 +38,7 @@ class ProtocolError(Exception):
         self.response = response
 
     def __str__(self):
-        return (
-            f"ProtocolError(query={repr(self.query)}, response={repr(self.response)})"
-        )
+        return f"ProtocolError(query={repr(self.query)}, response={repr(self.response)}, expected={repr(self.expected)})"
 
 
 class VersionNotSupported(Exception):
