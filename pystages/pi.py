@@ -21,7 +21,7 @@ import serial.serialutil
 import time
 from typing import cast
 from enum import Enum
-from .exceptions import ConnectionFailure
+from .exceptions import ConnectionFailure, ProtocolError
 from .vector import Vector
 from .stage import Stage
 from .pi_errors import PIError
@@ -80,7 +80,7 @@ class PI(Stage):
         self.logger.debug(f"> {cmd.strip()}")
         self.serial.write(cmd.encode("utf-8"))
 
-    def fast_query(self, address: int, command: int) -> str:
+    def fast_query(self, address: int, command: int) -> list[str]:
         """
         Single-character commands, e.g., fast query commands, consist only of one ASCII
         character.
@@ -94,7 +94,28 @@ class PI(Stage):
         self.serial.write(f"{address} {command_str}".encode("utf-8"))
         response = self.serial.readline().decode("utf-8").strip()
         self.logger.debug(f"< {response}")
-        return response
+        response_list = response.split(" ", 2)
+        if len(response_list) != 3:
+            raise ProtocolError(
+                query=f"{address} #{command}",
+                response=response,
+            )
+        try:
+            sender_address = int(response_list[0])
+            target_address = int(response_list[1])
+        except ValueError:
+            raise ProtocolError(
+                query=f"{address} #{command}",
+                response=response,
+                expected="Sender's or target's address formatted as an integer",
+            )
+        if sender_address != 0 or target_address != address:
+            raise ProtocolError(
+                query=f"{address} #{command}",
+                response=response,
+                expected=f"Sender's address 0 and target's address {address}",
+            )
+        return response_list
 
     def query(
         self,
@@ -105,8 +126,9 @@ class PI(Stage):
         """
         Send a command to the stage and return the response.
 
-        :param address: The address of the stage.
         :param command: The command to send.
+        :param address: The address of the stage.
+        :param args: The arguments to send (if any).
         :return: The response from the stage.
         """
         cmd = f"{address} " if address is not None else ""
@@ -124,16 +146,35 @@ class PI(Stage):
         while True:
             _response = self.serial.readline().decode("utf-8").rstrip("\r\n")
             self.logger.debug(f"< {_response}")
-            if address is not None:
+            if address is not None and len(responses) == 0:
                 response = _response.split(" ", 2)
-                assert (
-                    len(response) == 3
-                    and int(response[0]) == 0
-                    and int(response[1]) == address
-                ), (
-                    f"Unexpected format of response: '{_response}',"
-                    f" expecting '0 {address} PAYLOAD'."
-                )
+                # In the case the query contains a specific Target address,
+                # the first line of the response is split into 3 parts:
+                # 0: Sender address of the query (PC, always 0)
+                # 1: Target address of the query (PI GCS)
+                # 2: Payload
+                if len(response) != 3:
+                    raise ProtocolError(
+                        query=cmd,
+                        response=_response,
+                        expected="3 parts in the response, separated by spaces",
+                    )
+                try:
+                    sender_address = int(response[0])
+                    target_address = int(response[1])
+                except ValueError:
+                    raise ProtocolError(
+                        query=cmd,
+                        response=_response,
+                        expected="Sender's or target's address formatted as an integer",
+                    )
+                if sender_address != 0 or target_address != address:
+                    raise ProtocolError(
+                        query=cmd,
+                        response=_response,
+                        expected=f"Sender's address 0 and target's address {address}",
+                    )
+
                 payload: str = response[2]
             else:
                 payload = _response
@@ -165,8 +206,12 @@ class PI(Stage):
         for a in self.addresses:
             res = self.query("POS", a)[0]
             response = res.split("=")
-            assert len(response) == 2
-            assert int(response[0]) == 1
+            if len(response) != 2 or int(response[0]) != 1:
+                raise ProtocolError(
+                    query=f"{a} POS?",
+                    response=res,
+                    expected="2 parts in the response, separated by =, with the first part being '1'",
+                )
             positions.append(float(response[1].strip()))
         return Vector(*positions)
 
@@ -203,10 +248,7 @@ class PI(Stage):
         for address in self.addresses:
             # self.serial.write(f"{address} \x05".encode("utf-8"))
             # response = self.serial.readline().decode("utf-8").strip().split(" ", 2)
-            response = self.fast_query(address, 0x05).split(" ", 2)
-            assert len(response) == 3
-            assert int(response[0]) == 0
-            assert int(response[1]) == address
+            response = self.fast_query(address, 0x05)
             if response[2] != "0":
                 return True
         return False
@@ -263,7 +305,6 @@ class PI(Stage):
         for address in self.addresses:
             # Set the servo mode to on (closed-loop operation)
             self.send(address, "SVO 1 1")
-
             self.send(address, f"{'FNL' if negative_limit else 'FPL'} 1")
             self.logger.debug(f"Performed fast reference for device at {address=}")
 
@@ -307,8 +348,26 @@ class PI(Stage):
         errors: list[PIError] = []
         for address in self.addresses:
             response = self.query("ERR", address)
-            assert len(response) == 1
-            errors.append(PIError(int(response[0])))
+            if len(response) != 1:
+                raise ProtocolError(
+                    query=f"{address} ERR?",
+                    response=" ".join(response),
+                )
+            try:
+                error_code_int = int(response[0])
+            except ValueError:
+                raise ProtocolError(
+                    query=f"{address} ERR?",
+                    response=response[0],
+                    expected="'ERROR', with ERROR being an integer",
+                )
+            if error_code_int not in PIError.__members__.values():
+                raise ProtocolError(
+                    query=f"{address} ERR?",
+                    response=response[0],
+                    expected=f"An integer within the list of {list(PIError.__members__.values())}",
+                )
+            errors.append(PIError(error_code_int))
         return errors
 
     def set_origin(self) -> None:

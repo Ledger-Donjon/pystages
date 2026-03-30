@@ -1,5 +1,5 @@
 from typing import Callable, cast
-
+import logging
 import pytest
 
 
@@ -15,6 +15,12 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         action="store",
         default=None,
         help="Device/serial port to use for hardware tests.",
+    )
+    parser.addoption(
+        "--serial-number",
+        action="store",
+        default=None,
+        help="Serial number of the stage to use for hardware tests.",
     )
 
 
@@ -40,3 +46,18 @@ def require_stage(enabled_stage: str | None) -> Callable[[str], None]:
 @pytest.fixture
 def stage_dev(request: pytest.FixtureRequest) -> str | None:
     return cast(str | None, request.config.getoption("--dev"))
+
+
+@pytest.fixture
+def serial_number(request: pytest.FixtureRequest) -> str | None:
+    return cast(str | None, request.config.getoption("--serial-number"))
+
+
+@pytest.fixture
+def log_level(request: pytest.FixtureRequest) -> str:
+    level = cast(str, request.config.getoption("--log-level") or "INFO").upper()
+    logger = logging.getLogger()
+    if not logger.hasHandlers():
+        logger.addHandler(logging.StreamHandler())
+    logger.setLevel(level)
+    return level
