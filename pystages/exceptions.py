@@ -27,18 +27,25 @@ class ConnectionFailure(Exception):
 
 
 class ProtocolError(Exception):
-    def __init__(self, query: str | None = None, response: str | None = None):
+    def __init__(
+        self,
+        query: str | None = None,
+        response: str | None = None,
+        expected: str | None = None,
+    ):
         super().__init__(",".join([repr(query), repr(response)]))
         self.query = query
         self.response = response
+        self.expected = expected
 
     def __str__(self):
-        return f"ProtocolError({repr(self.query)}, {repr(self.response)})"
+        return f"ProtocolError(query={repr(self.query)}, response={repr(self.response)}, expected={repr(self.expected)})"
 
 
 class VersionNotSupported(Exception):
-    def __init__(self, version: str):
+    def __init__(self, version: str, expected: str | None = None):
         self.version = version
+        self.expected = expected
 
     def __str__(self) -> str:
-        return self.version
+        return f"VersionNotSupported(version={repr(self.version)}, expected={repr(self.expected)})"
