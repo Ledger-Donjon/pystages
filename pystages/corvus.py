@@ -69,6 +69,7 @@ class Corvus(Stage):
         :param command: Command string. CR or blank must not be present at the
             end of this string.
         """
+        self.logger.debug(f"> {command}")
         self.serial.write((command + " ").encode())
 
     def receive(self) -> str:
@@ -83,6 +84,7 @@ class Corvus(Stage):
         while response[-2:] != b"\r\n":
             response += self.serial.read(1)
         # Remove CR-LF and return as string
+        self.logger.debug(f"< {response[:-2].decode()}")
         return response[:-2].decode()
 
     def send_receive(self, command: str) -> str:
@@ -132,7 +134,7 @@ class Corvus(Stage):
         Execute limit-switch move.
         Take caution for collisions before calling this method !
 
-        :param wait: Optionally waits for move operation to be done.
+        :param wait: Optionally waits for calibration operation to be done.
         """
         # Call for calibration
         self.send("cal")
