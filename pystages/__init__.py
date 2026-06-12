@@ -24,7 +24,7 @@ from .pi import PI, PIError, PIReferencingMethod
 from .autofocus import Autofocus
 from .vector import Vector
 from .tic import Tic, TicDirection
-from .cncrouter import CNCRouter, CNCStatus
+from .cncrouter import CNCRouter, CNCError, CNCStatus, describe_grbl_alarm
 
 __all__ = [
     "Stage",
@@ -36,7 +36,9 @@ __all__ = [
     "Tic",
     "TicDirection",
     "CNCRouter",
+    "CNCError",
     "CNCStatus",
+    "describe_grbl_alarm",
     "PI",
     "PIError",
     "PIReferencingMethod",

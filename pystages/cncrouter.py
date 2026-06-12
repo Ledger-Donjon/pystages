@@ -46,12 +46,47 @@ class CNCStatus(str, Enum):
     CHECK = "Check"
 
 
+GRBL_ALARM_DESCRIPTIONS: dict[int, str] = {
+    1: "Hard limit triggered. Machine position is likely lost. Re-homing is recommended.",
+    2: "Soft limit: motion target exceeds machine travel. Position retained. Unlock with $X.",
+    3: "Reset while executing a G-code block. Re-homing is recommended.",
+    4: "Probe fail: probe is not in the expected initial state before probing.",
+    5: "Probe fail: probe did not contact the workpiece within the programmed travel.",
+    6: "Homing fail: reset is required before homing can be re-attempted.",
+    7: "Homing fail: safety door was open during homing.",
+    8: "Homing fail: pull-off travel failed to clear the limit switch.",
+    9: "Homing fail: approach cycle failed to clear the limit switch.",
+    10: "Homing fail: dual approach cycle failed to clear the limit switch.",
+}
+
+
+def describe_grbl_alarm(alarm_code: int) -> str:
+    """Return a human-readable description for a Grbl ALARM code."""
+    return GRBL_ALARM_DESCRIPTIONS.get(
+        alarm_code, f"Unknown Grbl alarm code {alarm_code}."
+    )
+
+
 class CNCError(Exception):
     """Exception raised when a specific error is detected by the CNC"""
 
-    def __init__(self, message: str, cncstatus: CNCStatus):
+    def __init__(
+        self,
+        message: str,
+        cncstatus: CNCStatus,
+        alarm_code: int | None = None,
+    ):
         super().__init__(message)
         self.cncstatus = cncstatus
+        self.alarm_code = alarm_code
+
+    def __str__(self) -> str:
+        if self.alarm_code is not None:
+            description = describe_grbl_alarm(self.alarm_code)
+            if self.args[0]:
+                return f"ALARM:{self.alarm_code} — {description} [{self.args[0]}]"
+            return f"ALARM:{self.alarm_code} — {description}"
+        return self.args[0] or repr(self.cncstatus)
 
 
 class CNCRouter(Stage):
@@ -213,13 +248,14 @@ class CNCRouter(Stage):
 
         # The possible outputs:
         # - '<Idle|MPos:1.000,3.000,4.000|FS:0,0|WCO:0.000,0.000,0.000>'
-        # - 'ALARM:1'
+        # - 'ALARM:#'
 
-        if status.startswith("ALARM:1"):
+        if status.startswith("ALARM:"):
             # The ALARM message is followed by something like
             # '[MSG:Reset to continue]'
+            alarm_code = int(status.split(":", 1)[1])
             next = self.receive()
-            raise CNCError(next, CNCStatus.ALARM)
+            raise CNCError(next, CNCStatus.ALARM, alarm_code=alarm_code)
 
         # Discard any unwanted format
         if not (status.startswith("<") and status.endswith(">")):
@@ -299,6 +335,13 @@ class CNCRouter(Stage):
         # Remove CR-LF and return as string
         return response[:-2].decode()
 
+    def _raise_if_alarm_response(self, response: str) -> None:
+        if not response.startswith("ALARM:"):
+            return
+        alarm_code = int(response.split(":", 1)[1])
+        detail = self.receive()
+        raise CNCError(detail, CNCStatus.ALARM, alarm_code=alarm_code)
+
     def send_receive(self, command: str) -> str:
         """
         Send a command, wait and return the response.
@@ -307,7 +350,9 @@ class CNCRouter(Stage):
         :return: Received response string, CR-LF removed.
         """
         self.send(command)
-        return self.receive()
+        response = self.receive()
+        self._raise_if_alarm_response(response)
+        return response
 
     @property
     def position(self) -> Vector:
