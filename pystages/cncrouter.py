@@ -72,6 +72,7 @@ class CNCRouter(Stage):
 
         super().__init__(num_axis=3)
         self.reset_wait_time = reset_wait_time
+        self._wco: Vector | None = None
         try:
             dev = dev or self.find_device(pid=0x7523, vid=0x1A86)
             self.serial = serial.Serial(dev, 115200, timeout=1)
@@ -80,6 +81,7 @@ class CNCRouter(Stage):
         self.atr: list[str] = []
         if do_reset:
             self.reset_grbl()
+
 
     def reset_grbl(self, wait_time: float | None = None) -> bool:
         """
@@ -95,8 +97,9 @@ class CNCRouter(Stage):
         self.send("\030", eol="")
         time.sleep(wait_time)
         self.send("")
+        self._wco = None
 
-        responses = self.receive_lines()
+        self.atr = responses = self.receive_lines()
         # Expected ATR is 'Grbl x.xx ['$' for help]' for first line.
         ok = responses[0].startswith("Grbl") and responses[0].endswith("['$' for help]")
         if not ok:
@@ -252,6 +255,7 @@ class CNCRouter(Stage):
         """
         if eol is None:
             eol = "\n"
+        self.logger.debug(f"> {command + eol}")
         self.serial.write((command + eol).encode())
 
     def receive_lines(self, until: str = "ok") -> list[str]:
@@ -268,7 +272,13 @@ class CNCRouter(Stage):
                 lines.append(line)
         return lines
 
+
     def receive(self) -> str:
+        r = self._receive()
+        self.logger.debug(f"< {r}")
+        return r
+
+    def _receive(self) -> str:
         """
         Read input serial buffer to get a response. Blocks until a response is
         available.
@@ -315,26 +325,34 @@ class CNCRouter(Stage):
                 attempts += 1
                 time.sleep(0.05)
                 continue
+
             extra_dict: dict[str, object] = status_tuple[1]
-            # Preferred: compute WPos = MPos - WCO when both available
-            if "WCO" in extra_dict and "MPos" in extra_dict:
-                mpos_raw = extra_dict.get("MPos")
-                wco_raw = extra_dict.get("WCO")
-                if isinstance(mpos_raw, list) and isinstance(wco_raw, list):
-                    mpos_src = cast(list[str], mpos_raw)
-                    wco_src = cast(list[str], wco_raw)
-                    mpos_list: list[float] = [float(v) for v in mpos_src]
-                    wco_list: list[float] = [float(v) for v in wco_src]
-                    mpos = Vector(*mpos_list)
-                    wco = Vector(*wco_list)
-                    return mpos - wco
-            # Fallback: if WPos is directly available, use it
+
+            # If WPos is directly available, use it
             if "WPos" in extra_dict:
                 wpos_raw = extra_dict.get("WPos")
                 if isinstance(wpos_raw, list):
                     wpos_src = cast(list[str], wpos_raw)
                     wpos_list: list[float] = [float(v) for v in wpos_src]
                     return Vector(*wpos_list)
+
+            # If "WCO" is given, retrieve it and get in cache
+            if "WCO" in extra_dict:
+                wco_raw = extra_dict.get("WCO")
+                if isinstance(wco_raw, list):
+                    wco_src = cast(list[str], wco_raw)
+                    wco_list: list[float] = [float(v) for v in wco_src]
+                    self._wco = Vector(*wco_list)
+
+            # Compute WPos = MPos - WCO when both available
+            if "MPos" in extra_dict and self._wco is not None:
+                mpos_raw = extra_dict.get("MPos")
+                if isinstance(mpos_raw, list):
+                    mpos_src = cast(list[str], mpos_raw)
+                    mpos_list: list[float] = [float(v) for v in mpos_src]
+                    mpos = Vector(*mpos_list)
+                    return mpos - self._wco
+
             attempts += 1
             time.sleep(0.05)
 
