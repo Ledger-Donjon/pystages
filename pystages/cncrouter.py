@@ -59,7 +59,7 @@ class CNCRouter(Stage):
     Class to command CNC routers.
     """
 
-    def __init__(self, dev: str | None = None, reset_wait_time: float = 2.0):
+    def __init__(self, dev: str | None = None, reset_wait_time: float = 2.0, do_reset: bool = True):
         """
         Open serial device to connect to the CNC routers. Raise a
         ConnectionFailure exception if the serial device could not be open.
@@ -77,7 +77,9 @@ class CNCRouter(Stage):
             self.serial = serial.Serial(dev, 115200, timeout=1)
         except serial.serialutil.SerialException as e:
             raise ConnectionFailure() from e
-        self.reset_grbl()
+        self.atr: list[str] = []
+        if do_reset:
+            self.reset_grbl()
 
     def reset_grbl(self, wait_time: float | None = None) -> bool:
         """
