@@ -137,7 +137,7 @@ class StageWindow(QWidget):
         box = QHBoxLayout()
         vbox.addLayout(box)
         self.z_offset = w = QCheckBox("Z offset (mm)")
-        w.setChecked(True)
+        w.setChecked(False)
         box.addWidget(w)
         self.controls.append(w)
         self.z_offset_sel = w = QComboBox()

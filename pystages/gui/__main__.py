@@ -1,6 +1,14 @@
 from PyQt6.QtWidgets import QApplication, QStyleFactory
 import sys
+import os
+import logging
 from PyQt6.QtGui import QIcon, QPalette, QColor
+
+logging.basicConfig(
+    level=os.environ.get("PYSTAGES_LOGLEVEL", "WARNING").upper(),
+    format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+)
+
 from .util import resource_path
 from .gui import StageWindow
 
