@@ -5,6 +5,7 @@ from typing import Callable
 from pystages import Vector
 from pystages.cncrouter import CNCRouter
 
+
 def test_init(require_stage: Callable[[str], None], stage_dev: str | None):
     require_stage("CNC")
     cnc = CNCRouter(dev=stage_dev, do_reset=False)
@@ -28,6 +29,7 @@ def test_init(require_stage: Callable[[str], None], stage_dev: str | None):
     print(cnc.get_current_status())
     print(cnc.get_current_status())
 
+
 def test_init_reset(require_stage: Callable[[str], None], stage_dev: str | None):
     require_stage("CNC")
     cnc = CNCRouter(dev=stage_dev, do_reset=True)
@@ -44,6 +46,7 @@ def test_home(require_stage: Callable[[str], None], stage_dev: str | None):
     cnc.home(wait=False)
     time.sleep(60)
     print(cnc.get_current_status())
+
 
 def test_get_position(require_stage: Callable[[str], None], stage_dev: str | None):
     require_stage("CNC")
