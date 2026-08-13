@@ -269,8 +269,15 @@ class CNCRouter(Stage):
         # Remove the chevrons and split all pipes.
         elements = status[1:-1].split("|")
 
-        # First element is the CNC status
-        cncstatus = CNCStatus(elements[0])
+        # First element is the CNC status. Some GRBL firmware variants append
+        # a sub-state with a comma, while standard GRBL uses a colon.
+        raw_status = elements[0]
+        normalized_status = raw_status.split(":", 1)[0].split(",", 1)[0]
+        if normalized_status != raw_status:
+            self.logger.debug(
+                "Normalizing CNC status %r to %r", raw_status, normalized_status
+            )
+        cncstatus = CNCStatus(normalized_status)
 
         # Next elements to be parsed as key/value pairs
         others: dict[str, object] = {}
