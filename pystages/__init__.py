@@ -22,10 +22,6 @@ from .m3fs import M3FS
 from .smc100 import SMC100
 from .pi import (
     PI,
-    PI_CLOSED_LOOP_VELOCITY_PARAM,
-    PI_MAX_CLOSED_LOOP_VELOCITY_PARAM,
-    PI_JOYSTICK_INVERT_DIRECTION_PARAM,
-    PI_MIN_CLOSED_LOOP_VELOCITY,
     PIError,
     PIReferencingMethod,
     PIVelocityLimits,
@@ -52,8 +48,4 @@ __all__ = [
     "PIError",
     "PIReferencingMethod",
     "PIVelocityLimits",
-    "PI_CLOSED_LOOP_VELOCITY_PARAM",
-    "PI_MAX_CLOSED_LOOP_VELOCITY_PARAM",
-    "PI_MIN_CLOSED_LOOP_VELOCITY",
-    "PI_JOYSTICK_INVERT_DIRECTION_PARAM",
 ]
