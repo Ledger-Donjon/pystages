@@ -20,7 +20,16 @@ from .stage import Stage
 from .corvus import Corvus
 from .m3fs import M3FS
 from .smc100 import SMC100
-from .pi import PI, PIError, PIReferencingMethod
+from .pi import (
+    PI,
+    PI_CLOSED_LOOP_VELOCITY_PARAM,
+    PI_MAX_CLOSED_LOOP_VELOCITY_PARAM,
+    PI_JOYSTICK_INVERT_DIRECTION_PARAM,
+    PI_MIN_CLOSED_LOOP_VELOCITY,
+    PIError,
+    PIReferencingMethod,
+    PIVelocityLimits,
+)
 from .autofocus import Autofocus
 from .vector import Vector
 from .tic import Tic, TicDirection
@@ -42,4 +51,9 @@ __all__ = [
     "PI",
     "PIError",
     "PIReferencingMethod",
+    "PIVelocityLimits",
+    "PI_CLOSED_LOOP_VELOCITY_PARAM",
+    "PI_MAX_CLOSED_LOOP_VELOCITY_PARAM",
+    "PI_MIN_CLOSED_LOOP_VELOCITY",
+    "PI_JOYSTICK_INVERT_DIRECTION_PARAM",
 ]

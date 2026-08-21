@@ -19,12 +19,17 @@ from __future__ import annotations
 
 import serial.serialutil
 import time
-from typing import cast
 from enum import Enum
+from typing import NamedTuple, cast
 from .exceptions import ConnectionFailure, ProtocolError
 from .vector import Vector
 from .stage import Stage
 from .pi_errors import PIError
+
+PI_CLOSED_LOOP_VELOCITY_PARAM = 0x49
+PI_MAX_CLOSED_LOOP_VELOCITY_PARAM = 0x0A
+PI_MIN_CLOSED_LOOP_VELOCITY = 0.0
+PI_JOYSTICK_INVERT_DIRECTION_PARAM = 0x61
 
 _JOYSTICK_ID = 1
 _JOYSTICK_AXIS = 1
@@ -39,6 +44,25 @@ class PIReferencingMethod(int, Enum):
 
     POS_ALLOWED = 0  # An absolute position value can be assigned with POS, or a referencing move can be started with FRF, FNL or FPL.
     REFERENCING_ONLY = 1  # A referencing move must be started with FRF, FNL or FPL. Using POS is not allowed.
+
+
+class PIVelocityLimits(NamedTuple):
+    """
+    Closed-loop velocity bounds for one controller axis.
+
+    * ``minimum`` is always ``0`` (slowest ``VEL`` setting).
+    * ``default`` comes from non-volatile memory (parameter 0x49, ``SEP?``):
+      the value loaded at power-up.
+    * ``maximum`` is the upper bound for ``VEL`` (parameter 0xA): the higher
+      value returned by ``SPA?`` (volatile) and ``SEP?`` (non-volatile).
+    """
+
+    default: float
+    maximum: float
+
+    @property
+    def minimum(self) -> float:
+        return PI_MIN_CLOSED_LOOP_VELOCITY
 
 
 class PI(Stage):
@@ -434,6 +458,55 @@ class PI(Stage):
         for address, velocity in zip(self.addresses, value):
             self.send(address, f"VEL 1 {velocity}")
 
+    def _velocity_max_for_address(self, address: int) -> float:
+        return max(
+            self._query_parameter(
+                address, PI_MAX_CLOSED_LOOP_VELOCITY_PARAM, nonvolatile=False
+            ),
+            self._query_parameter(
+                address, PI_MAX_CLOSED_LOOP_VELOCITY_PARAM, nonvolatile=True
+            ),
+        )
+
+    @property
+    def velocity_limits(self) -> list[PIVelocityLimits]:
+        """
+        Default and maximum closed-loop velocity for each controller address.
+
+        The default is read from non-volatile memory (parameter 0x49 via
+        ``SEP?``). The maximum is parameter 0xA, queried in both volatile
+        (``SPA?``) and non-volatile (``SEP?``) memory; the higher value is
+        used.
+        """
+        limits: list[PIVelocityLimits] = []
+        for address in self.addresses:
+            limits.append(
+                PIVelocityLimits(
+                    self._query_parameter(
+                        address,
+                        PI_CLOSED_LOOP_VELOCITY_PARAM,
+                        nonvolatile=True,
+                    ),
+                    self._velocity_max_for_address(address),
+                )
+            )
+        return limits
+
+    @property
+    def velocity_default(self) -> list[float]:
+        """Default closed-loop velocity loaded at power-up (parameter 0x49)."""
+        return [
+            self._query_parameter(
+                address, PI_CLOSED_LOOP_VELOCITY_PARAM, nonvolatile=True
+            )
+            for address in self.addresses
+        ]
+
+    @property
+    def velocity_max(self) -> list[float]:
+        """Maximum settable closed-loop velocity (parameter 0xA)."""
+        return [self._velocity_max_for_address(address) for address in self.addresses]
+
     @property
     def acceleration(self) -> list[float]:
         """
@@ -578,6 +651,28 @@ class PI(Stage):
             )
         return states
 
+    @property
+    def joystick_direction_inverted(self) -> list[bool]:
+        """
+        Inversion of joystick motion direction for each controller address.
+
+        Maps to parameter 0x61 (``SPA?`` / ``SPA``): ``0`` normal, ``1`` inverted.
+        """
+        return [
+            self._query_parameter(address, PI_JOYSTICK_INVERT_DIRECTION_PARAM) != 0.0
+            for address in self.addresses
+        ]
+
+    @joystick_direction_inverted.setter
+    def joystick_direction_inverted(self, value: bool | list[bool]) -> None:
+        if isinstance(value, bool):
+            value = [value] * len(self.addresses)
+        for address, inverted in zip(self.addresses, value):
+            self.send(
+                address,
+                f"SPA 1 0x{PI_JOYSTICK_INVERT_DIRECTION_PARAM:X} {int(inverted)}",
+            )
+
     def _parse_bool_assignment(
         self, payload: str, query: str, expected_left: str
     ) -> bool:
@@ -591,3 +686,31 @@ class PI(Stage):
                 expected=f"{expected_left}=<0|1>",
             )
         return right == "1"
+
+    def _query_parameter(
+        self, address: int, param_id: int, *, nonvolatile: bool = False
+    ) -> float:
+        command = "SEP" if nonvolatile else "SPA"
+        param = f"0x{param_id:X}"
+        payload = self.query(command, address, args=["1", param])[0]
+        return self._parse_parameter_value(
+            payload,
+            query=f"{address} {command}? 1 {param}",
+        )
+
+    @staticmethod
+    def _parse_parameter_value(payload: str, query: str) -> float:
+        if "=" not in payload:
+            raise ProtocolError(
+                query=query,
+                response=payload,
+                expected="parameter assignment (<item> <id>=<value>)",
+            )
+        try:
+            return float(payload.rsplit("=", 1)[1].strip())
+        except ValueError:
+            raise ProtocolError(
+                query=query,
+                response=payload,
+                expected="float value after '='",
+            )

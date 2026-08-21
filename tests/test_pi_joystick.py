@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 
 from pystages.exceptions import ProtocolError
-from pystages.pi import PI
+from pystages.pi import PI, PIVelocityLimits
 
 
 class FakeSerial:
@@ -96,6 +96,40 @@ def test_joystick_buttons_rejects_unexpected_response(
         _ = pi.joystick_buttons
 
 
+def test_joystick_direction_inverted(pi: PI, fake_serial: FakeSerial) -> None:
+    fake_serial.push(1, "1 0x61=0")
+    fake_serial.push(2, "1 0x61=1")
+    fake_serial.push(3, "1 0x61=0")
+    assert pi.joystick_direction_inverted == [False, True, False]
+    assert fake_serial.written == [
+        "1 SPA? 1 0x61\n",
+        "2 SPA? 1 0x61\n",
+        "3 SPA? 1 0x61\n",
+    ]
+
+
+def test_set_joystick_direction_inverted_scalar(
+    pi: PI, fake_serial: FakeSerial
+) -> None:
+    pi.joystick_direction_inverted = True
+    assert fake_serial.written == [
+        "1 SPA 1 0x61 1\n",
+        "2 SPA 1 0x61 1\n",
+        "3 SPA 1 0x61 1\n",
+    ]
+
+
+def test_set_joystick_direction_inverted_per_address(
+    pi: PI, fake_serial: FakeSerial
+) -> None:
+    pi.joystick_direction_inverted = [False, True, False]
+    assert fake_serial.written == [
+        "1 SPA 1 0x61 0\n",
+        "2 SPA 1 0x61 1\n",
+        "3 SPA 1 0x61 0\n",
+    ]
+
+
 def test_get_velocity(pi: PI, fake_serial: FakeSerial) -> None:
     fake_serial.push(1, "1=5.000000")
     fake_serial.push(2, "1=7.500000")
@@ -122,6 +156,58 @@ def test_set_velocity_scalar_applies_to_every_axis(
 def test_set_velocity_per_address(pi: PI, fake_serial: FakeSerial) -> None:
     pi.velocity = [1.0, 2.0, 3.0]
     assert fake_serial.written == ["1 VEL 1 1.0\n", "2 VEL 1 2.0\n", "3 VEL 1 3.0\n"]
+
+
+def test_velocity_limits(pi: PI, fake_serial: FakeSerial) -> None:
+    fake_serial.push(1, "1 0x49=5.000000")
+    fake_serial.push(1, "1 0xA=20.000000")
+    fake_serial.push(1, "1 0xA=20.000000")
+    fake_serial.push(2, "1 0x49=6.500000")
+    fake_serial.push(2, "1 0xA=25.000000")
+    fake_serial.push(2, "1 0xA=25.000000")
+    fake_serial.push(3, "1 0x49=7.000000")
+    fake_serial.push(3, "1 0xA=30.000000")
+    fake_serial.push(3, "1 0xA=100.000000")
+    assert pi.velocity_limits == [
+        PIVelocityLimits(5.0, 20.0),
+        PIVelocityLimits(6.5, 25.0),
+        PIVelocityLimits(7.0, 100.0),
+    ]
+    assert fake_serial.written == [
+        "1 SEP? 1 0x49\n",
+        "1 SPA? 1 0xA\n",
+        "1 SEP? 1 0xA\n",
+        "2 SEP? 1 0x49\n",
+        "2 SPA? 1 0xA\n",
+        "2 SEP? 1 0xA\n",
+        "3 SEP? 1 0x49\n",
+        "3 SPA? 1 0xA\n",
+        "3 SEP? 1 0xA\n",
+    ]
+
+
+def test_velocity_default_and_max(pi: PI, fake_serial: FakeSerial) -> None:
+    fake_serial.push(1, "1 0x49=5.000000")
+    fake_serial.push(2, "1 0x49=6.500000")
+    fake_serial.push(3, "1 0x49=7.000000")
+    assert pi.velocity_default == [5.0, 6.5, 7.0]
+
+    fake_serial.written.clear()
+    fake_serial.push(1, "1 0xA=20.000000")
+    fake_serial.push(1, "1 0xA=20.000000")
+    fake_serial.push(2, "1 0xA=25.000000")
+    fake_serial.push(2, "1 0xA=25.000000")
+    fake_serial.push(3, "1 0xA=30.000000")
+    fake_serial.push(3, "1 0xA=100.000000")
+    assert pi.velocity_max == [20.0, 25.0, 100.0]
+
+
+def test_velocity_limits_rejects_unexpected_response(
+    pi: PI, fake_serial: FakeSerial
+) -> None:
+    fake_serial.push(1, "oops")
+    with pytest.raises(ProtocolError):
+        _ = pi.velocity_limits
 
 
 def test_get_acceleration(pi: PI, fake_serial: FakeSerial) -> None:
