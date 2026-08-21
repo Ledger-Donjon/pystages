@@ -392,6 +392,130 @@ class PI(Stage):
                     f"No response received when setting origin for device at address {address}"
                 )
 
+    @property
+    def velocity(self) -> list[float]:
+        """
+        Get the closed-loop velocity (``VEL``) of the stage.
+
+        This is the maximum speed reached in closed-loop motion, and the
+        ceiling that joystick control scales via its lookup table factor
+        (-1.0 to 1.0).
+
+        :return: The velocity, in physical units per second, of each axis.
+        """
+        velocities: list[float] = []
+        for address in self.addresses:
+            res = self.query("VEL", address)[0]
+            response = res.split("=")
+            if len(response) != 2 or int(response[0]) != 1:
+                raise ProtocolError(
+                    query=f"{address} VEL?",
+                    response=res,
+                    expected="2 parts in the response, separated by =, with the first part being '1'",
+                )
+            velocities.append(float(response[1].strip()))
+        return velocities
+
+    @velocity.setter
+    def velocity(self, value: float | list[float]) -> None:
+        """
+        Set the closed-loop velocity (``VEL``) of the stage.
+
+        Lowering this value directly reduces the maximum speed reachable
+        via joystick control, which is the usual cause of the joystick
+        feeling "too fast".
+
+        :param value: Velocity, in physical units per second, applied to
+            every axis, or a list with one value per controller address.
+        """
+        if isinstance(value, (int, float)):
+            value = [float(value)] * len(self.addresses)
+
+        for address, velocity in zip(self.addresses, value):
+            self.send(address, f"VEL 1 {velocity}")
+
+    @property
+    def acceleration(self) -> list[float]:
+        """
+        Get the closed-loop acceleration (``ACC``) of the stage.
+
+        :return: The acceleration, in physical units per second squared,
+            of each axis.
+        """
+        accelerations: list[float] = []
+        for address in self.addresses:
+            res = self.query("ACC", address)[0]
+            response = res.split("=")
+            if len(response) != 2 or int(response[0]) != 1:
+                raise ProtocolError(
+                    query=f"{address} ACC?",
+                    response=res,
+                    expected="2 parts in the response, separated by =, with the first part being '1'",
+                )
+            accelerations.append(float(response[1].strip()))
+        return accelerations
+
+    @acceleration.setter
+    def acceleration(self, value: float | list[float]) -> None:
+        """
+        Set the closed-loop acceleration (``ACC``) of the stage.
+
+        The profile generator enforces this limit even while the axis is
+        under joystick control: it bounds how fast the commanded velocity
+        can ramp up towards the joystick-requested value. Lowering it
+        smooths abrupt joystick movements and reduces the peak motor
+        current, which helps avoid the amplifier's overcurrent protection
+        tripping (``PI_CNTR_OVER_CURR_PROTEC_TRIGGERED_BY_AMP_MODULE``).
+
+        :param value: Acceleration, in physical units per second squared,
+            applied to every axis, or a list with one value per controller
+            address.
+        """
+        if isinstance(value, (int, float)):
+            value = [float(value)] * len(self.addresses)
+
+        for address, acceleration in zip(self.addresses, value):
+            self.send(address, f"ACC 1 {acceleration}")
+
+    @property
+    def deceleration(self) -> list[float]:
+        """
+        Get the closed-loop deceleration (``DEC``) of the stage.
+
+        :return: The deceleration, in physical units per second squared,
+            of each axis.
+        """
+        decelerations: list[float] = []
+        for address in self.addresses:
+            res = self.query("DEC", address)[0]
+            response = res.split("=")
+            if len(response) != 2 or int(response[0]) != 1:
+                raise ProtocolError(
+                    query=f"{address} DEC?",
+                    response=res,
+                    expected="2 parts in the response, separated by =, with the first part being '1'",
+                )
+            decelerations.append(float(response[1].strip()))
+        return decelerations
+
+    @deceleration.setter
+    def deceleration(self, value: float | list[float]) -> None:
+        """
+        Set the closed-loop deceleration (``DEC``) of the stage.
+
+        Same rationale as :attr:`acceleration`, applied to the ramp-down
+        side of a motion.
+
+        :param value: Deceleration, in physical units per second squared,
+            applied to every axis, or a list with one value per controller
+            address.
+        """
+        if isinstance(value, (int, float)):
+            value = [float(value)] * len(self.addresses)
+
+        for address, deceleration in zip(self.addresses, value):
+            self.send(address, f"DEC 1 {deceleration}")
+
     def enable_joystick(self) -> None:
         """
         Enable analog joystick control on every configured controller.

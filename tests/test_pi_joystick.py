@@ -94,3 +94,61 @@ def test_joystick_buttons_rejects_unexpected_response(
     fake_serial.push(1, "1 1=2")
     with pytest.raises(ProtocolError):
         _ = pi.joystick_buttons
+
+
+def test_get_velocity(pi: PI, fake_serial: FakeSerial) -> None:
+    fake_serial.push(1, "1=5.000000")
+    fake_serial.push(2, "1=7.500000")
+    fake_serial.push(3, "1=10.000000")
+    assert pi.velocity == [5.0, 7.5, 10.0]
+    assert fake_serial.written == ["1 VEL?\n", "2 VEL?\n", "3 VEL?\n"]
+
+
+def test_get_velocity_rejects_unexpected_response(
+    pi: PI, fake_serial: FakeSerial
+) -> None:
+    fake_serial.push(1, "oops")
+    with pytest.raises(ProtocolError):
+        _ = pi.velocity
+
+
+def test_set_velocity_scalar_applies_to_every_axis(
+    pi: PI, fake_serial: FakeSerial
+) -> None:
+    pi.velocity = 2.5
+    assert fake_serial.written == ["1 VEL 1 2.5\n", "2 VEL 1 2.5\n", "3 VEL 1 2.5\n"]
+
+
+def test_set_velocity_per_address(pi: PI, fake_serial: FakeSerial) -> None:
+    pi.velocity = [1.0, 2.0, 3.0]
+    assert fake_serial.written == ["1 VEL 1 1.0\n", "2 VEL 1 2.0\n", "3 VEL 1 3.0\n"]
+
+
+def test_get_acceleration(pi: PI, fake_serial: FakeSerial) -> None:
+    fake_serial.push(1, "1=20.000000")
+    fake_serial.push(2, "1=20.000000")
+    fake_serial.push(3, "1=20.000000")
+    assert pi.acceleration == [20.0, 20.0, 20.0]
+    assert fake_serial.written == ["1 ACC?\n", "2 ACC?\n", "3 ACC?\n"]
+
+
+def test_set_acceleration_scalar_applies_to_every_axis(
+    pi: PI, fake_serial: FakeSerial
+) -> None:
+    pi.acceleration = 5.0
+    assert fake_serial.written == ["1 ACC 1 5.0\n", "2 ACC 1 5.0\n", "3 ACC 1 5.0\n"]
+
+
+def test_get_deceleration(pi: PI, fake_serial: FakeSerial) -> None:
+    fake_serial.push(1, "1=20.000000")
+    fake_serial.push(2, "1=20.000000")
+    fake_serial.push(3, "1=20.000000")
+    assert pi.deceleration == [20.0, 20.0, 20.0]
+    assert fake_serial.written == ["1 DEC?\n", "2 DEC?\n", "3 DEC?\n"]
+
+
+def test_set_deceleration_scalar_applies_to_every_axis(
+    pi: PI, fake_serial: FakeSerial
+) -> None:
+    pi.deceleration = 5.0
+    assert fake_serial.written == ["1 DEC 1 5.0\n", "2 DEC 1 5.0\n", "3 DEC 1 5.0\n"]

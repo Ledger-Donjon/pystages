@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import sys
 
-from PyQt6.QtGui import QColor, QPainter, QPen
+from PyQt6.QtGui import QColor, QPainter, QPen, QPaintEvent
 from PyQt6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -113,8 +113,9 @@ class LookupPlot(QWidget):
         self.values = values
         self.update()
 
-    def paintEvent(self, event) -> None:  # type: ignore[override]
-        _ = event
+    def paintEvent(self, a0: QPaintEvent | None) -> None:
+        if a0 is None:
+            return
         painter = QPainter(self)
         painter.fillRect(self.rect(), QColor(30, 30, 30))
         margin = 10
@@ -178,7 +179,7 @@ class PILookupWindow(QWidget):
 
         box = QHBoxLayout()
         layout.addLayout(box)
-        self.buttons = []
+        self.buttons: list[QPushButton] = []
         for label, slot in (
             ("Read", self.read_table),
             ("Linear", lambda: self.load_default(LINEAR)),
@@ -232,7 +233,7 @@ class PILookupWindow(QWidget):
         return self.stage.addresses[0]
 
     def values(self) -> list[float]:
-        values = []
+        values: list[float] = []
         for row in range(LOOKUP_TABLE_SIZE):
             item = self.table.item(row, 0)
             values.append(float(item.text()) if item is not None else 0.0)
