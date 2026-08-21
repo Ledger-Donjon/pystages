@@ -494,7 +494,9 @@ class PILookupTab(QWidget):
             write_lookup_table(self.stage, self.address, self.values())
             self.status.setText("Lookup table written to controller")
         except ValueError as exc:
-            QMessageBox.critical(self, f"Address {self.address}: write failed", str(exc))
+            QMessageBox.critical(
+                self, f"Address {self.address}: write failed", str(exc)
+            )
 
     def confirm_write(self) -> bool:
         answer = QMessageBox.warning(
@@ -659,8 +661,7 @@ class PILookupWindow(QWidget):
         assert self.stage is not None
         buttons = self.stage.joystick_buttons
         return {
-            address: buttons[tab.address_index]
-            for address, tab in self.tabs.items()
+            address: buttons[tab.address_index] for address, tab in self.tabs.items()
         }
 
     def apply_all_velocities(self) -> None:
