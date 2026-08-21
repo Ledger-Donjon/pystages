@@ -20,12 +20,7 @@ from .stage import Stage
 from .corvus import Corvus
 from .m3fs import M3FS
 from .smc100 import SMC100
-from .pi import (
-    PI,
-    PIError,
-    PIReferencingMethod,
-    PIVelocityLimits,
-)
+from .pi import PI
 from .autofocus import Autofocus
 from .vector import Vector
 from .tic import Tic, TicDirection
@@ -45,7 +40,4 @@ __all__ = [
     "CNCStatus",
     "describe_grbl_alarm",
     "PI",
-    "PIError",
-    "PIReferencingMethod",
-    "PIVelocityLimits",
 ]
