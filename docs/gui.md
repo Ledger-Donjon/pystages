@@ -39,3 +39,18 @@ actual move, and then a final vertical-down displacement (Z-).
 The `Home` button permits to trigger the calibration process of the stage. 
 Be careful that your setup is clear before using it.
 
+## PI joystick lookup table
+
+A separate program is available for Physik Instrumente C-863.12 controllers.
+It is independent from the generic stage GUI, and the lookup table commands are
+not part of the `PI` class API.
+
+```bash
+python -m pystages.gui.pi_lookup
+```
+
+After connecting (serial port and controller address), read the 256-point
+lookup table from the controller, edit the velocity factors in `[-1.0, 1.0]`,
+or load the firmware linear / parabolic profiles. Writing stores the table in
+non-volatile memory, which supports a limited number of write cycles.
+

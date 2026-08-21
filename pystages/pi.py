@@ -26,6 +26,11 @@ from .vector import Vector
 from .stage import Stage
 from .pi_errors import PIError
 
+_JOYSTICK_ID = 1
+_JOYSTICK_AXIS = 1
+_JOYSTICK_BUTTON = 1
+_JOYSTICK_CONTROLLER_AXIS = 1
+
 
 class PIReferencingMethod(int, Enum):
     """
@@ -386,3 +391,79 @@ class PI(Stage):
                 raise ConnectionFailure(
                     f"No response received when setting origin for device at address {address}"
                 )
+
+    def enable_joystick(self) -> None:
+        """
+        Enable analog joystick control on every configured controller.
+
+        Assigns controller axis 1 to joystick device 1 / axis 1 (``JAX``), then
+        enables the device (``JON 1 1``). Servo mode must already be on.
+        Motion commands are rejected while the joystick is enabled.
+
+        Enabling the joystick with no device connected can cause unintentional
+        axis motion.
+        """
+        for address in self.addresses:
+            self.send(
+                address,
+                f"JAX {_JOYSTICK_ID} {_JOYSTICK_AXIS} {_JOYSTICK_CONTROLLER_AXIS}",
+            )
+            self.send(address, f"JON {_JOYSTICK_ID} 1")
+
+    def disable_joystick(self) -> None:
+        """Disable analog joystick control on every configured controller."""
+        for address in self.addresses:
+            self.send(address, f"JON {_JOYSTICK_ID} 0")
+
+    @property
+    def joystick_enabled(self) -> list[bool]:
+        """Activation state of joystick device 1 for each controller address."""
+        states: list[bool] = []
+        for address in self.addresses:
+            payload = self.query("JON", address, args=[str(_JOYSTICK_ID)])[0]
+            states.append(
+                self._parse_bool_assignment(
+                    payload,
+                    query=f"{address} JON? {_JOYSTICK_ID}",
+                    expected_left=str(_JOYSTICK_ID),
+                )
+            )
+        return states
+
+    @property
+    def joystick_buttons(self) -> list[bool]:
+        """
+        Pressed state of joystick button 1 for each controller address.
+
+        On the C-863.12 there is one button per joystick device, and one
+        joystick device per controller.
+        """
+        states: list[bool] = []
+        for address in self.addresses:
+            payload = self.query(
+                "JBS",
+                address,
+                args=[str(_JOYSTICK_ID), str(_JOYSTICK_BUTTON)],
+            )[0]
+            states.append(
+                self._parse_bool_assignment(
+                    payload,
+                    query=f"{address} JBS? {_JOYSTICK_ID} {_JOYSTICK_BUTTON}",
+                    expected_left=f"{_JOYSTICK_ID} {_JOYSTICK_BUTTON}",
+                )
+            )
+        return states
+
+    def _parse_bool_assignment(
+        self, payload: str, query: str, expected_left: str
+    ) -> bool:
+        parts = payload.split("=")
+        left = parts[0].strip() if parts else ""
+        right = parts[1].strip() if len(parts) == 2 else ""
+        if len(parts) != 2 or left != expected_left or right not in {"0", "1"}:
+            raise ProtocolError(
+                query=query,
+                response=payload,
+                expected=f"{expected_left}=<0|1>",
+            )
+        return right == "1"
