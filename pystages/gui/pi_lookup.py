@@ -71,7 +71,9 @@ def read_lookup_table(stage: PI, address: int) -> list[float]:
     try:
         stage.serial.write(f"{query}\n".encode("utf-8"))
     except Exception as exc:
-        raise ConnectionFailure(f"Failed to write '{query}' to the controller.") from exc
+        raise ConnectionFailure(
+            f"Failed to write '{query}' to the controller."
+        ) from exc
     values: list[float] = []
     in_header = True
     while len(values) < LOOKUP_TABLE_SIZE:
