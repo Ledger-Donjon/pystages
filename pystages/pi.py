@@ -431,7 +431,7 @@ class PI(Stage):
         for address in self.addresses:
             res = self.query("VEL", address)[0]
             response = res.split("=")
-            if len(response) != 2 or int(response[0]) != 1:
+            if len(response) != 2 or int(response[0].strip()) != 1:
                 raise ProtocolError(
                     query=f"{address} VEL?",
                     response=res,
