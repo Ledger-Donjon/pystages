@@ -68,12 +68,19 @@ BUTTON_JOYSTICK_MASTER_ADDRESS = 3
 def read_lookup_table(stage: PI, address: int) -> list[float]:
     """Read the 256 velocity factors of the joystick lookup table (``JLT?``)."""
     query = f"{address} JLT? 1 {LOOKUP_TABLE_SIZE}"
-    stage.serial.write(f"{query}\n".encode("utf-8"))
+    try:
+        stage.serial.write(f"{query}\n".encode("utf-8"))
+    except Exception as exc:
+        raise ConnectionFailure(f"Failed to write '{query}' to the controller.") from exc
     values: list[float] = []
     in_header = True
     while len(values) < LOOKUP_TABLE_SIZE:
-        line = stage.serial.readline().decode("utf-8").strip()
-        print(line)
+        try:
+            line = stage.serial.readline().decode("utf-8").strip()
+        except Exception as exc:
+            raise ConnectionFailure(
+                f"Failed to read response to '{query}' from the controller."
+            ) from exc
         if not line:
             break
         if in_header:
