@@ -130,8 +130,8 @@ class PI(Stage):
                 response=response,
             )
         try:
-            sender_address = int(response_list[0])
-            target_address = int(response_list[1])
+            sender_address = int(response_list[0].strip())
+            target_address = int(response_list[1].strip())
         except ValueError:
             raise ProtocolError(
                 query=f"{address} #{command}",
@@ -189,8 +189,8 @@ class PI(Stage):
                         expected="3 parts in the response, separated by spaces",
                     )
                 try:
-                    sender_address = int(response[0])
-                    target_address = int(response[1])
+                    sender_address = int(response[0].strip())
+                    target_address = int(response[1].strip())
                 except ValueError:
                     raise ProtocolError(
                         query=cmd,
@@ -235,7 +235,7 @@ class PI(Stage):
         for a in self.addresses:
             res = self.query("POS", a)[0]
             response = res.split("=")
-            if len(response) != 2 or int(response[0]) != 1:
+            if len(response) != 2 or int(response[0].strip()) != 1:
                 raise ProtocolError(
                     query=f"{a} POS?",
                     response=res,
@@ -278,7 +278,7 @@ class PI(Stage):
             # self.serial.write(f"{address} \x05".encode("utf-8"))
             # response = self.serial.readline().decode("utf-8").strip().split(" ", 2)
             response = self.fast_query(address, 0x05)
-            if response[2] != "0":
+            if response[2].strip() != "0":
                 return True
         return False
 
@@ -298,7 +298,7 @@ class PI(Stage):
             #    or a referencing move can be started with FRF, FNL or FPL.
             # 1 (default): A referencing move must be started with FRF, FNL or FPL.
             #    Using POS is not allowed.
-            reference_method: str = self.query("RON", address)[0].split("=")[1]
+            reference_method: str = self.query("RON", address)[0].split("=")[1].strip()
             reference_methods.append(PIReferencingMethod(int(reference_method)))
             self.logger.debug(f"For device at {address}: {reference_method=}")
         return reference_methods
@@ -346,7 +346,7 @@ class PI(Stage):
         for address in self.addresses:
             # 1 = Referencing has been done
             # 0 = Referencing has not been done
-            if not self.query("FRF", address)[0].split("=")[1] == "1":
+            if not self.query("FRF", address)[0].split("=")[1].strip() == "1":
                 return True
         return False
 
@@ -383,7 +383,7 @@ class PI(Stage):
                     response=" ".join(response),
                 )
             try:
-                error_code_int = int(response[0])
+                error_code_int = int(response[0].strip())
             except ValueError:
                 raise ProtocolError(
                     query=f"{address} ERR?",
@@ -519,7 +519,7 @@ class PI(Stage):
         for address in self.addresses:
             res = self.query("ACC", address)[0]
             response = res.split("=")
-            if len(response) != 2 or int(response[0]) != 1:
+            if len(response) != 2 or int(response[0].strip()) != 1:
                 raise ProtocolError(
                     query=f"{address} ACC?",
                     response=res,
@@ -562,7 +562,7 @@ class PI(Stage):
         for address in self.addresses:
             res = self.query("DEC", address)[0]
             response = res.split("=")
-            if len(response) != 2 or int(response[0]) != 1:
+            if len(response) != 2 or int(response[0].strip()) != 1:
                 raise ProtocolError(
                     query=f"{address} DEC?",
                     response=res,
