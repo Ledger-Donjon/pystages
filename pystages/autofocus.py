@@ -19,7 +19,6 @@
 from __future__ import annotations
 
 import numpy as np
-from typing import cast
 
 
 class Autofocus:
@@ -46,7 +45,7 @@ class Autofocus:
         """Remove all registration points."""
         self.registered_points.clear()
 
-    def focus(self, x: int | float, y: int | float) -> int | float:
+    def focus(self, x: int | float, y: int | float) -> float:
         """
         Guess the correct focus depth given abscissa and ordinate of a new
         point. This method will raise a RuntimeError if not enough points have
@@ -65,7 +64,7 @@ class Autofocus:
         else:
             raise RuntimeError("Not enough points registered for autofocus")
 
-    def __focus_3(self, x: int | float, y: int | float) -> int | float:
+    def __focus_3(self, x: int | float, y: int | float) -> float:
         """
         Guess correct focus using 3 points.
         :param x: Abscissa of the point.
@@ -79,10 +78,10 @@ class Autofocus:
         ab = b - a
         ac = c - a
         ap = p - a[:2]
-        base = np.matrix([ab[:2], ac[:2]]).T
-        ap_in_base = np.array((base.I * np.matrix(ap).T).T)
-        z = ab[2] * ap_in_base[0, 0] + ac[2] * ap_in_base[0, 1] + a[2]
-        return cast(int | float, z)
+        base = np.column_stack((ab[:2], ac[:2]))
+        ap_in_base = np.linalg.solve(base, ap)
+        z = ab[2] * ap_in_base[0] + ac[2] * ap_in_base[1] + a[2]
+        return float(z)
 
     def __len__(self) -> int:
         """:return: Number of registered points."""
