@@ -1,6 +1,6 @@
 pyserial
 pyusb
-numpy
+numpy>=1.26
 sphinx
 sphinx-rtd-theme
 myst-parser

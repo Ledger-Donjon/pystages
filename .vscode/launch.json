@@ -9,6 +9,12 @@
             "type": "debugpy",
             "request": "launch",
             "module": "pystages.gui"
+        },
+        {
+            "name": "Python Debugger: pystages PILOOKUP",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pystages.gui.pi_lookup"
         }
     ]
 }

@@ -32,6 +32,12 @@ You can run it with the following command:
 python -m pystages.gui
 ```
 
+A separate program displays and updates the PI joystick lookup table:
+
+```bash
+python -m pystages.gui.pi_lookup
+```
+
 ## Requirements
 
 This library requires the following packages:
