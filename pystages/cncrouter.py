@@ -32,9 +32,9 @@ from .grbl import GRBLSetting, InvertMask, StatusReportMask
 from .stage import Stage
 
 
-class CNCStatus(str, Enum):
+class CNCState(str, Enum):
     """
-    Possible statuses that the CNC can report.
+    Possible states that the CNC can report.
     """
 
     IDLE = "Idle"
@@ -44,6 +44,12 @@ class CNCStatus(str, Enum):
     HOME = "Home"
     ALARM = "Alarm"
     CHECK = "Check"
+
+
+class CNCStatus:
+    def __init__(self, state: CNCState, substate: int | None = None):
+        self.state = state
+        self.substate = substate
 
 
 GRBL_ALARM_DESCRIPTIONS: dict[int, str] = {
@@ -68,25 +74,23 @@ def describe_grbl_alarm(alarm_code: int) -> str:
 
 
 class CNCError(Exception):
-    """Exception raised when a specific error is detected by the CNC"""
+    """Exception raised when a specific error (alarm) is detected by the CNC"""
 
-    def __init__(
-        self,
-        message: str,
-        cncstatus: CNCStatus,
-        alarm_code: int | None = None,
-    ):
+    def __init__(self, message: str, status: CNCStatus):
         super().__init__(message)
-        self.cncstatus = cncstatus
-        self.alarm_code = alarm_code
+        self.status = status
 
     def __str__(self) -> str:
-        if self.alarm_code is not None:
-            description = describe_grbl_alarm(self.alarm_code)
+        if self.status.state == CNCState.ALARM:
+            msg = "ALARM"
+            if self.status.substate is not None:
+                msg += f":{self.status.substate} - "
+                msg += describe_grbl_alarm(self.status.substate)
             if self.args[0]:
-                return f"ALARM:{self.alarm_code} — {description} [{self.args[0]}]"
-            return f"ALARM:{self.alarm_code} — {description}"
-        return self.args[0] or repr(self.cncstatus)
+                msg += f" [{self.args[0]}]"
+            return msg
+
+        return self.args[0] or repr(self.status)
 
 
 class CNCRouter(Stage):
@@ -236,8 +240,11 @@ class CNCRouter(Stage):
         self.send("?", eol="")
         status = self.receive()
 
-        # Retry once if it does not respond
+        # Retry once if it does not respond; wait >20ms so Grbl's first '?' is
+        # fully processed before sending a second (additional queries sent before
+        # the first report is generated are silently ignored by Grbl).
         if status == "":
+            time.sleep(0.05)
             self.send("?", eol="")
             status = self.receive()
 
@@ -254,12 +261,7 @@ class CNCRouter(Stage):
         # - '<Idle|MPos:1.000,3.000,4.000|FS:0,0|WCO:0.000,0.000,0.000>'
         # - 'ALARM:#'
 
-        if status.startswith("ALARM:"):
-            # The ALARM message is followed by something like
-            # '[MSG:Reset to continue]'
-            alarm_code = int(status.split(":", 1)[1])
-            next = self.receive()
-            raise CNCError(next, CNCStatus.ALARM, alarm_code=alarm_code)
+        self._raise_if_alarm_response(status)
 
         # Discard any unwanted format
         if not (status.startswith("<") and status.endswith(">")):
@@ -269,8 +271,22 @@ class CNCRouter(Stage):
         # Remove the chevrons and split all pipes.
         elements = status[1:-1].split("|")
 
-        # First element is the CNC status
-        cncstatus = CNCStatus(elements[0])
+        # First element is the Machine State (CNCStatus).
+        # Some GRBL firmware variants append a sub-state with a comma (`Run,0`),
+        # while standard GRBL uses a colon (`Hold:0`).
+        machine_state = elements[0]
+        normalized_machine_state = machine_state.replace(",", ":", 1)
+        if normalized_machine_state != machine_state:
+            self.logger.warning(
+                "Normalizing CNC machine state %r to %r",
+                machine_state,
+                normalized_machine_state,
+            )
+        status_tuple = normalized_machine_state.split(":", 1)
+        cncstatus = CNCStatus(
+            CNCState(status_tuple[0]),
+            int(status_tuple[1]) if len(status_tuple) > 1 else None,
+        )
 
         # Next elements to be parsed as key/value pairs
         others: dict[str, object] = {}
@@ -342,8 +358,10 @@ class CNCRouter(Stage):
         if not response.startswith("ALARM:"):
             return
         alarm_code = int(response.split(":", 1)[1])
-        detail = self.receive()
-        raise CNCError(detail, CNCStatus.ALARM, alarm_code=alarm_code)
+        # The ALARM message is followed by something like
+        # '[MSG:Reset to continue]'
+        next = self.receive()
+        raise CNCError(next, CNCStatus(CNCState.ALARM, alarm_code))
 
     def send_receive(self, command: str) -> str:
         """
@@ -436,7 +454,7 @@ class CNCRouter(Stage):
         for _ in range(10):
             status = self.get_current_status()
             if status is not None:
-                return status[0] in [CNCStatus.RUN, CNCStatus.HOME]
+                return status[0].state in [CNCState.RUN, CNCState.HOME]
             time.sleep(0.05)
         # If status is consistently unavailable, consider not moving
         return False
@@ -449,13 +467,48 @@ class CNCRouter(Stage):
         """
         return self.send_receive("G92 X0 Y0 Z0")
 
-    def home(self, wait: bool = False):
+    def home(self, wait: bool = False, timeout: float = 120.0):
         """
-        Sends a `$H` command. The stage responds a message `[MSG:Sleeping]` after `ok`.
-        Take caution for collisions before calling this method !
+        Sends a ``$H`` command. Take caution for collisions before calling this method!
 
-        :param wait: Optionally waits for move operation to be done.
+        Grbl ignores ``'?'`` status queries during homing, so the usual
+        :py:meth:`~pystages.Stage.wait_move_finished` polling loop would incorrectly
+        report the machine as stopped. When ``wait=True``, this method instead blocks
+        until Grbl emits the ``ok`` that signals homing completion.
+
+        :py:attr:`~pystages.Stage.wait_routine` is called approximately every millisecond
+        while no serial data is available, allowing callers to perform UI updates or
+        cooperative yielding while waiting.
+
+        :param wait: If True, block until homing is complete.
+        :param timeout: Maximum seconds to wait for homing to complete (default 120s).
+            Raises :py:exc:`TimeoutError` if homing does not finish in time.
         """
         self.send("$H")
-        if wait:
-            self.wait_move_finished()
+        if not wait:
+            return
+        # Grbl ignores '?' during homing, so we cannot use receive() in a loop:
+        # serial.read() blocks for up to ~10 s per call, making wait_routine
+        # effectively uncallable. Instead, poll in_waiting (non-blocking) and
+        # accumulate bytes, calling wait_routine every ~1 ms when the buffer is empty.
+        deadline = time.monotonic() + timeout
+        buf = b""
+        while time.monotonic() < deadline:
+            n = self.serial.in_waiting
+            if n == 0:
+                if self.wait_routine is not None:
+                    self.wait_routine()
+                time.sleep(0.001)
+                continue
+            buf += self.serial.read(n)
+            while b"\r\n" in buf:
+                raw, buf = buf.split(b"\r\n", 1)
+                response = raw.decode()
+                self.logger.debug(f"< {response}")
+                if response == "ok":
+                    return
+                self._raise_if_alarm_response(response)
+                if response.startswith("error:"):
+                    raise CNCError(response, CNCStatus(CNCState.ALARM))
+                # Informational [MSG:…] lines — keep waiting.
+        raise TimeoutError(f"Homing did not complete within {timeout}s")
