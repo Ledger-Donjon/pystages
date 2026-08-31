@@ -28,8 +28,9 @@ from __future__ import annotations
 import atexit
 import signal
 import sys
+from functools import partial
 
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QCloseEvent, QColor, QPainter, QPen, QPaintEvent
 from PyQt6.QtWidgets import (
     QApplication,
@@ -50,14 +51,14 @@ from serial.tools.list_ports import comports
 from serial.tools.list_ports_common import ListPortInfo
 
 from ..exceptions import ConnectionFailure, ProtocolError
-from ..pi import PI, PI_MIN_CLOSED_LOOP_VELOCITY, PIVelocityLimits
+from ..pi import PI
 
 LOOKUP_TABLE_SIZE = 256
 LINEAR = 1
 PARABOLIC = 2
 # Number of table points sent per JLT command.
 WRITE_CHUNK = 16
-VELOCITY_SLIDER_SCALE = 100
+SLIDER_SCALE = 100
 # Physical button on address 1 divides every axis velocity by 4 while held.
 # Physical button on address 2 divides every axis velocity by 2 while held.
 # Physical button on address 3 toggles every axis joystick on each press.
@@ -122,19 +123,6 @@ def load_default_lookup_table(stage: PI, address: int, table_type: int) -> None:
     stage.send(address, f"JDT 1 1 {table_type}")
 
 
-def enable_joystick_address(stage: PI, address: int) -> None:
-    stage.send(address, "JAX 1 1 1")
-    stage.send(address, "JON 1 1")
-
-
-def disable_joystick_address(stage: PI, address: int) -> None:
-    stage.send(address, "JON 1 0")
-
-
-def set_velocity_address(stage: PI, address: int, velocity: float) -> None:
-    stage.send(address, f"VEL 1 {velocity}")
-
-
 class LookupPlot(QWidget):
     """Polyline of the lookup table factors, from -1 to 1."""
 
@@ -173,6 +161,69 @@ class LookupPlot(QWidget):
             painter.drawLine(int(x0), int(y0), int(x1), int(y1))
 
 
+class MotionSlider(QWidget):
+    """
+    Slider for one closed-loop motion setting of an axis.
+
+    ``released`` is emitted when the user drops the handle, ``restore_asked``
+    when the restore button is clicked. ``initial`` is the value read at
+    connection time, and ``restored`` tells whether it has been sent back.
+    """
+
+    released = pyqtSignal()
+    restore_asked = pyqtSignal()
+
+    def __init__(self, title: str) -> None:
+        super().__init__()
+        self.title = title
+        self.initial: float | None = None
+        self.maximum = 0.01
+        self.restored = True
+
+        box = QHBoxLayout()
+        box.setContentsMargins(0, 0, 0, 0)
+        self.setLayout(box)
+        box.addWidget(QLabel(title))
+        self.value_label = QLabel("—")
+        self.value_label.setMinimumWidth(48)
+        self.slider = QSlider(Qt.Orientation.Horizontal)
+        self.slider.valueChanged.connect(
+            lambda: self.value_label.setText(f"{self.value():g}")
+        )
+        self.slider.sliderReleased.connect(self.released)
+        box.addWidget(self.slider, stretch=1)
+        box.addWidget(self.value_label)
+        button = QPushButton("Restore initial")
+        button.clicked.connect(self.restore_asked)
+        box.addWidget(button)
+        self.info_label = QLabel("")
+        box.addWidget(self.info_label)
+
+    def value(self) -> float:
+        return self.slider.value() / SLIDER_SCALE
+
+    def set_value(self, value: float) -> None:
+        self.slider.setValue(round(min(self.maximum, max(0.0, value)) * SLIDER_SCALE))
+
+    def configure(self, initial: float, maximum: float, info: str = "") -> None:
+        """Set the slider range from the values read on the controller."""
+        self.initial = initial
+        self.maximum = max(maximum, initial, 0.01)
+        self.slider.setRange(0, round(self.maximum * SLIDER_SCALE))
+        self.set_value(initial)
+        self.restored = False
+        self.info_label.setText(
+            f"(initial: {initial:g}, range: 0–{self.maximum:g}{info})"
+        )
+
+    def reset(self) -> None:
+        self.initial = None
+        self.slider.setRange(0, SLIDER_SCALE)
+        self.slider.setValue(0)
+        self.value_label.setText("—")
+        self.info_label.setText("")
+
+
 class PILookupTab(QWidget):
     """Controls for one controller address."""
 
@@ -181,30 +232,30 @@ class PILookupTab(QWidget):
         self.address = address
         self.address_index = address_index
         self.stage: PI | None = None
-        self._initial_velocity: float | None = None
-        self._velocity_limits: PIVelocityLimits | None = None
-        self._velocity_restored = True
-        self._slider_maximum = 0.01
         self.lookup_window: PILookupWindow | None = None
 
         layout = QVBoxLayout()
         self.setLayout(layout)
 
-        box = QHBoxLayout()
-        layout.addLayout(box)
-        box.addWidget(QLabel("Velocity"))
-        self.velocity_slider = QSlider(Qt.Orientation.Horizontal)
-        self.velocity_slider.valueChanged.connect(self._update_velocity_label)
-        self.velocity_slider.sliderReleased.connect(self.apply_velocity)
-        box.addWidget(self.velocity_slider, stretch=1)
-        self.velocity_value_label = QLabel("—")
-        self.velocity_value_label.setMinimumWidth(48)
-        box.addWidget(self.velocity_value_label)
-        self.velocity_restore_button = QPushButton("Restore initial")
-        self.velocity_restore_button.clicked.connect(self.restore_initial_velocity)
-        box.addWidget(self.velocity_restore_button)
-        self.initial_velocity_label = QLabel("")
-        box.addWidget(self.initial_velocity_label)
+        # Velocity is applied to every axis at once, to honour the divisor of
+        # the physical buttons, hence its dedicated slots.
+        self.velocity = MotionSlider("Velocity")
+        self.velocity.released.connect(self.apply_velocity)
+        self.velocity.restore_asked.connect(self.restore_initial_velocity)
+        layout.addWidget(self.velocity)
+
+        self.acceleration = MotionSlider("Acceleration")
+        self.deceleration = MotionSlider("Deceleration")
+        for slider, command in ((self.acceleration, "ACC"), (self.deceleration, "DEC")):
+            layout.addWidget(slider)
+            slider.released.connect(partial(self.apply_ramp, slider, command))
+            slider.restore_asked.connect(partial(self.restore_ramp, slider, command))
+
+        self.settings = (
+            (self.velocity, "VEL"),
+            (self.acceleration, "ACC"),
+            (self.deceleration, "DEC"),
+        )
 
         box = QHBoxLayout()
         layout.addLayout(box)
@@ -220,8 +271,8 @@ class PILookupTab(QWidget):
         self.invert_direction_checkbox.clicked.connect(self.toggle_invert_direction)
         box.addWidget(self.invert_direction_checkbox)
         box.addStretch()
-        self._update_joystick_ui(False)
-        self._update_physical_button_indicator(False, connected=False)
+        self.show_joystick(False)
+        self.show_button(False, connected=False)
 
         self.plot = LookupPlot()
         layout.addWidget(self.plot)
@@ -253,15 +304,16 @@ class PILookupTab(QWidget):
 
     def bind_stage(self, stage: PI) -> None:
         self.stage = stage
-        limits = stage.velocity_limits[self.address_index]
-        self._initial_velocity = stage.velocity[self.address_index]
-        self._velocity_limits = limits
-        self._configure_velocity_slider(limits, self._initial_velocity)
-        self._velocity_restored = False
-        self._set_velocity_slider_value(self._clamp_velocity(self._initial_velocity))
-        self.initial_velocity_label.setText(
-            f"(initial: {self._initial_velocity:g}, "
-            f"range: 0–{self._slider_maximum:g}, default: {limits.default:g})"
+        index = self.address_index
+        limits = stage.velocity_limits[index]
+        self.velocity.configure(
+            stage.velocity[index], limits.maximum, f", default: {limits.default:g}"
+        )
+        self.acceleration.configure(
+            stage.acceleration[index], stage.acceleration_max[index]
+        )
+        self.deceleration.configure(
+            stage.deceleration[index], stage.deceleration_max[index]
         )
         self.sync_joystick_state()
         self.sync_invert_direction()
@@ -269,63 +321,23 @@ class PILookupTab(QWidget):
         self.status.setText(f"Connected to controller {self.address}")
 
     def unbind_stage(self) -> None:
-        self.restore_velocity()
+        self.restore_initial_settings()
         self.stage = None
-        self._initial_velocity = None
-        self._velocity_limits = None
-        self.initial_velocity_label.setText("")
-        self._reset_velocity_slider()
-        self._update_joystick_ui(False)
-        self._update_physical_button_indicator(False, connected=False)
-        self.invert_direction_checkbox.blockSignals(True)
+        for slider, _ in self.settings:
+            slider.reset()
+        self.show_joystick(False)
+        self.show_button(False, connected=False)
         self.invert_direction_checkbox.setChecked(False)
-        self.invert_direction_checkbox.blockSignals(False)
         self.lookup_window = None
         self.status.setText("Disconnected")
 
-    def _configure_velocity_slider(
-        self, limits: PIVelocityLimits, current: float
-    ) -> None:
-        maximum = max(limits.maximum, current, 0.01)
-        self.velocity_slider.setRange(
-            round(PI_MIN_CLOSED_LOOP_VELOCITY * VELOCITY_SLIDER_SCALE),
-            round(maximum * VELOCITY_SLIDER_SCALE),
-        )
-        self._slider_maximum = maximum
-
-    def _clamp_velocity(self, velocity: float) -> float:
-        return min(self._slider_maximum, max(PI_MIN_CLOSED_LOOP_VELOCITY, velocity))
-
-    def _slider_velocity(self) -> float:
-        return self.velocity_slider.value() / VELOCITY_SLIDER_SCALE
-
-    def _set_velocity_slider_value(self, velocity: float) -> None:
-        self.velocity_slider.blockSignals(True)
-        self.velocity_slider.setValue(round(velocity * VELOCITY_SLIDER_SCALE))
-        self.velocity_slider.blockSignals(False)
-        self._update_velocity_label()
-
-    def _update_velocity_label(self, _value: int | None = None) -> None:
-        self.velocity_value_label.setText(f"{self._slider_velocity():g}")
-
-    def _reset_velocity_slider(self) -> None:
-        self.velocity_slider.blockSignals(True)
-        self.velocity_slider.setRange(0, VELOCITY_SLIDER_SCALE)
-        self.velocity_slider.setValue(0)
-        self.velocity_slider.blockSignals(False)
-        self.velocity_value_label.setText("—")
-
-    def _update_joystick_ui(self, enabled: bool) -> None:
-        self.joystick_button.blockSignals(True)
+    def show_joystick(self, enabled: bool) -> None:
         self.joystick_button.setChecked(enabled)
         self.joystick_button.setText(
             "Joystick enabled" if enabled else "Joystick disabled"
         )
-        self.joystick_button.blockSignals(False)
 
-    def _update_physical_button_indicator(
-        self, pressed: bool, *, connected: bool = True
-    ) -> None:
+    def show_button(self, pressed: bool, *, connected: bool = True) -> None:
         if not connected:
             color = "#555555"
             status = "disconnected"
@@ -346,26 +358,24 @@ class PILookupTab(QWidget):
         if self.stage is None:
             return
         try:
-            enabled = self.stage.joystick_enabled[self.address_index]
-            self._update_joystick_ui(enabled)
+            self.show_joystick(self.stage.joystick_enabled[self.address_index])
         except ProtocolError as exc:
             QMessageBox.critical(
                 self, f"Address {self.address}: joystick state read failed", str(exc)
             )
 
     def toggle_joystick(self, enabled: bool) -> None:
+        """Enable or disable the joystick of this address only."""
         if self.stage is None:
             return
         try:
-            if enabled:
-                enable_joystick_address(self.stage, self.address)
-                self.status.setText("Joystick enabled")
-            else:
-                disable_joystick_address(self.stage, self.address)
-                self.status.setText("Joystick disabled")
-            self._update_joystick_ui(enabled)
+            states = self.stage.joystick_enabled
+            states[self.address_index] = enabled
+            self.stage.joystick_enabled = states
+            self.status.setText("Joystick enabled" if enabled else "Joystick disabled")
+            self.show_joystick(enabled)
         except ProtocolError as exc:
-            self._update_joystick_ui(not enabled)
+            self.show_joystick(not enabled)
             QMessageBox.critical(
                 self, f"Address {self.address}: joystick toggle failed", str(exc)
             )
@@ -404,56 +414,45 @@ class PILookupTab(QWidget):
             )
 
     def apply_velocity(self) -> None:
-        if self.stage is None or self.lookup_window is None:
+        if self.lookup_window is None:
             return
-        base = self._slider_velocity()
-        try:
-            self.lookup_window.apply_all_velocities()
-            divisor = self.lookup_window.velocity_divisor
-            if divisor > 1:
-                self.status.setText(
-                    f"Velocity set to {base:g} ({base / divisor:g} active on all axes)"
-                )
-            else:
-                self.status.setText(f"Velocity set to {base:g}")
-        except ProtocolError as exc:
-            QMessageBox.critical(
-                self, f"Address {self.address}: velocity update failed", str(exc)
-            )
+        self.lookup_window.apply_all_velocities()
+        value = self.velocity.value()
+        divisor = self.lookup_window.velocity_divisor
+        active = f" ({value / divisor:g} active on all axes)" if divisor > 1 else ""
+        self.status.setText(f"Velocity set to {value:g}{active}")
 
     def restore_initial_velocity(self) -> None:
-        if (
-            self.stage is None
-            or self._initial_velocity is None
-            or self._velocity_limits is None
-            or self.lookup_window is None
-        ):
+        if self.velocity.initial is None:
             return
-        try:
-            self._set_velocity_slider_value(
-                self._clamp_velocity(self._initial_velocity)
-            )
-            self.lookup_window.apply_all_velocities()
-            self.status.setText(f"Velocity restored to {self._initial_velocity:g}")
-        except ProtocolError as exc:
-            QMessageBox.critical(
-                self, f"Address {self.address}: velocity restore failed", str(exc)
-            )
+        self.velocity.set_value(self.velocity.initial)
+        self.apply_velocity()
 
-    def restore_velocity(self) -> None:
-        """Restore the velocity read at connection time (best effort)."""
-        if (
-            self._velocity_restored
-            or self.stage is None
-            or self._initial_velocity is None
-        ):
+    def apply_ramp(self, slider: MotionSlider, command: str) -> None:
+        """Send the slider value as ``ACC`` or ``DEC`` for this address."""
+        if self.stage is None:
             return
-        try:
-            set_velocity_address(self.stage, self.address, self._initial_velocity)
-        except (ProtocolError, ConnectionFailure, RuntimeError, OSError):
-            pass
-        else:
-            self._velocity_restored = True
+        self.stage.send(self.address, f"{command} 1 {slider.value()}")
+        self.status.setText(f"{slider.title} set to {slider.value():g}")
+
+    def restore_ramp(self, slider: MotionSlider, command: str) -> None:
+        if slider.initial is None:
+            return
+        slider.set_value(slider.initial)
+        self.apply_ramp(slider, command)
+
+    def restore_initial_settings(self) -> None:
+        """Send back the values read at connection time (best effort)."""
+        if self.stage is None:
+            return
+        for slider, command in self.settings:
+            if slider.initial is None or slider.restored:
+                continue
+            try:
+                self.stage.send(self.address, f"{command} 1 {slider.initial}")
+            except (ConnectionFailure, RuntimeError, OSError):
+                return
+            slider.restored = True
 
     def values(self) -> list[float]:
         values: list[float] = []
@@ -526,8 +525,7 @@ class PILookupWindow(QWidget):
         self.stage: PI | None = None
         self.tabs: dict[int, PILookupTab] = {}
         self.velocity_divisor = 1
-        self._addr3_button_pressed = False
-        self._button_states: dict[int, bool] = {}
+        self.master_button_pressed = False
 
         layout = QVBoxLayout()
         self.setLayout(layout)
@@ -603,10 +601,11 @@ class PILookupWindow(QWidget):
                 self.tabs[address] = tab
                 self.tab_widget.addTab(tab, f"Address {address}")
             self.velocity_divisor = 1
-            self._addr3_button_pressed = False
-            self._button_states = {}
-            self.sync_physical_buttons()
-            self._sync_addr3_button_state()
+            # Recorded so that a button already held at connection time does
+            # not count as a press.
+            self.master_button_pressed = self.button_states().get(
+                BUTTON_JOYSTICK_MASTER_ADDRESS, False
+            )
             self.set_connected(True)
         except (ConnectionFailure, ProtocolError, ValueError, RuntimeError) as exc:
             self.disconnect_stage()
@@ -621,8 +620,7 @@ class PILookupWindow(QWidget):
         self.tabs.clear()
         self.stage = None
         self.velocity_divisor = 1
-        self._addr3_button_pressed = False
-        self._button_states = {}
+        self.master_button_pressed = False
         self.set_connected(False)
 
     def set_connected(self, connected: bool) -> None:
@@ -658,15 +656,8 @@ class PILookupWindow(QWidget):
         finally:
             self.home_button.setEnabled(True)
 
-    @staticmethod
-    def _velocity_divisor_from_buttons(states: dict[int, bool]) -> int:
-        if states.get(1, False):
-            return BUTTON_VELOCITY_DIVISOR[1]
-        if states.get(2, False):
-            return BUTTON_VELOCITY_DIVISOR[2]
-        return 1
-
-    def _read_button_states(self) -> dict[int, bool]:
+    def button_states(self) -> dict[int, bool]:
+        """Pressed state of the joystick button of each connected address."""
         assert self.stage is not None
         buttons = self.stage.joystick_buttons
         return {
@@ -676,79 +667,52 @@ class PILookupWindow(QWidget):
     def apply_all_velocities(self) -> None:
         if self.stage is None:
             return
-        for tab in self.tabs.values():
-            velocity = tab._slider_velocity() / self.velocity_divisor
-            set_velocity_address(self.stage, tab.address, velocity)
+        self.stage.velocity = [
+            tab.velocity.value() / self.velocity_divisor for tab in self.tabs.values()
+        ]
 
-    def _set_all_joysticks_enabled(self, enabled: bool) -> None:
-        assert self.stage is not None
+    def toggle_all_joysticks(self) -> None:
+        """Master button press enables or disables the joystick on every axis."""
+        if self.stage is None:
+            return
+        try:
+            self.stage.joystick_enabled = not self.stage.joystick_enabled[0]
+        except (ProtocolError, ConnectionFailure, RuntimeError, OSError):
+            return
         for tab in self.tabs.values():
-            if enabled:
-                enable_joystick_address(self.stage, tab.address)
-            else:
-                disable_joystick_address(self.stage, tab.address)
             tab.sync_joystick_state()
-
-    def _toggle_all_joysticks(self) -> None:
-        if self.stage is None or not self.tabs:
-            return
-        first_tab = next(iter(self.tabs.values()))
-        try:
-            enabled = self.stage.joystick_enabled[first_tab.address_index]
-        except (ProtocolError, ConnectionFailure, RuntimeError, OSError):
-            return
-        self._set_all_joysticks_enabled(not enabled)
-
-    def sync_physical_buttons(self) -> None:
-        if self.stage is None:
-            return
-        try:
-            states = self._read_button_states()
-        except (ProtocolError, ConnectionFailure, RuntimeError, OSError):
-            return
-        for address, tab in self.tabs.items():
-            tab._update_physical_button_indicator(states.get(address, False))
-        self.velocity_divisor = self._velocity_divisor_from_buttons(states)
-        self.apply_all_velocities()
-        self._button_states = states
-
-    def _sync_addr3_button_state(self) -> None:
-        """Record address-3 button state without triggering a toggle."""
-        if self.stage is None:
-            return
-        try:
-            states = self._read_button_states()
-        except (ProtocolError, ConnectionFailure, RuntimeError, OSError):
-            return
-        self._addr3_button_pressed = states.get(BUTTON_JOYSTICK_MASTER_ADDRESS, False)
 
     def poll_joystick_buttons(self) -> None:
         if self.stage is None:
             return
         try:
-            states = self._read_button_states()
+            states = self.button_states()
         except (ProtocolError, ConnectionFailure, RuntimeError, OSError):
             return
 
         for address, tab in self.tabs.items():
-            tab._update_physical_button_indicator(states.get(address, False))
+            tab.show_button(states.get(address, False))
 
-        divisor = self._velocity_divisor_from_buttons(states)
+        divisor = next(
+            (
+                d
+                for address, d in BUTTON_VELOCITY_DIVISOR.items()
+                if states.get(address)
+            ),
+            1,
+        )
         if divisor != self.velocity_divisor:
             self.velocity_divisor = divisor
             self.apply_all_velocities()
 
-        if BUTTON_JOYSTICK_MASTER_ADDRESS in self.tabs:
-            master_pressed = states.get(BUTTON_JOYSTICK_MASTER_ADDRESS, False)
-            if master_pressed and not self._addr3_button_pressed:
-                self._toggle_all_joysticks()
-            self._addr3_button_pressed = master_pressed
+        pressed = states.get(BUTTON_JOYSTICK_MASTER_ADDRESS, False)
+        if pressed and not self.master_button_pressed:
+            self.toggle_all_joysticks()
+        self.master_button_pressed = pressed
 
-        self._button_states = states
-
-    def restore_velocity(self) -> None:
+    def restore_initial_settings(self) -> None:
         for tab in self.tabs.values():
-            tab.restore_velocity()
+            tab.restore_initial_settings()
 
     def closeEvent(self, a0: QCloseEvent | None) -> None:
         self.disconnect_stage()
@@ -761,7 +725,7 @@ def main() -> None:
     window = PILookupWindow()
 
     def cleanup() -> None:
-        window.restore_velocity()
+        window.restore_initial_settings()
 
     app.aboutToQuit.connect(cleanup)
     atexit.register(cleanup)
@@ -773,7 +737,7 @@ def main() -> None:
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
-    window.resize(480, 700)
+    window.resize(520, 760)
     window.show()
     sys.exit(app.exec())
 
