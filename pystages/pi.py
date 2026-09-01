@@ -19,12 +19,24 @@ from __future__ import annotations
 
 import serial.serialutil
 import time
-from typing import cast
 from enum import Enum
+from typing import NamedTuple, cast
 from .exceptions import ConnectionFailure, ProtocolError
 from .vector import Vector
 from .stage import Stage
 from .pi_errors import PIError
+
+PI_CLOSED_LOOP_VELOCITY_PARAM = 0x49
+PI_MAX_CLOSED_LOOP_VELOCITY_PARAM = 0x0A
+PI_MAX_CLOSED_LOOP_ACCELERATION_PARAM = 0x0B
+PI_MAX_CLOSED_LOOP_DECELERATION_PARAM = 0x0C
+PI_MIN_CLOSED_LOOP_VELOCITY = 0.0
+PI_JOYSTICK_INVERT_DIRECTION_PARAM = 0x61
+
+_JOYSTICK_ID = 1
+_JOYSTICK_AXIS = 1
+_JOYSTICK_BUTTON = 1
+_JOYSTICK_CONTROLLER_AXIS = 1
 
 
 class PIReferencingMethod(int, Enum):
@@ -34,6 +46,25 @@ class PIReferencingMethod(int, Enum):
 
     POS_ALLOWED = 0  # An absolute position value can be assigned with POS, or a referencing move can be started with FRF, FNL or FPL.
     REFERENCING_ONLY = 1  # A referencing move must be started with FRF, FNL or FPL. Using POS is not allowed.
+
+
+class PIVelocityLimits(NamedTuple):
+    """
+    Closed-loop velocity bounds for one controller axis.
+
+    * ``minimum`` is always ``0`` (slowest ``VEL`` setting).
+    * ``default`` comes from non-volatile memory (parameter 0x49, ``SEP?``):
+      the value loaded at power-up.
+    * ``maximum`` is the upper bound for ``VEL`` (parameter 0xA): the higher
+      value returned by ``SPA?`` (volatile) and ``SEP?`` (non-volatile).
+    """
+
+    default: float
+    maximum: float
+
+    @property
+    def minimum(self) -> float:
+        return PI_MIN_CLOSED_LOOP_VELOCITY
 
 
 class PI(Stage):
@@ -101,8 +132,8 @@ class PI(Stage):
                 response=response,
             )
         try:
-            sender_address = int(response_list[0])
-            target_address = int(response_list[1])
+            sender_address = int(response_list[0].strip())
+            target_address = int(response_list[1].strip())
         except ValueError:
             raise ProtocolError(
                 query=f"{address} #{command}",
@@ -160,8 +191,8 @@ class PI(Stage):
                         expected="3 parts in the response, separated by spaces",
                     )
                 try:
-                    sender_address = int(response[0])
-                    target_address = int(response[1])
+                    sender_address = int(response[0].strip())
+                    target_address = int(response[1].strip())
                 except ValueError:
                     raise ProtocolError(
                         query=cmd,
@@ -206,7 +237,7 @@ class PI(Stage):
         for a in self.addresses:
             res = self.query("POS", a)[0]
             response = res.split("=")
-            if len(response) != 2 or int(response[0]) != 1:
+            if len(response) != 2 or int(response[0].strip()) != 1:
                 raise ProtocolError(
                     query=f"{a} POS?",
                     response=res,
@@ -249,7 +280,7 @@ class PI(Stage):
             # self.serial.write(f"{address} \x05".encode("utf-8"))
             # response = self.serial.readline().decode("utf-8").strip().split(" ", 2)
             response = self.fast_query(address, 0x05)
-            if response[2] != "0":
+            if response[2].strip() != "0":
                 return True
         return False
 
@@ -269,7 +300,7 @@ class PI(Stage):
             #    or a referencing move can be started with FRF, FNL or FPL.
             # 1 (default): A referencing move must be started with FRF, FNL or FPL.
             #    Using POS is not allowed.
-            reference_method: str = self.query("RON", address)[0].split("=")[1]
+            reference_method: str = self.query("RON", address)[0].split("=")[1].strip()
             reference_methods.append(PIReferencingMethod(int(reference_method)))
             self.logger.debug(f"For device at {address}: {reference_method=}")
         return reference_methods
@@ -317,7 +348,7 @@ class PI(Stage):
         for address in self.addresses:
             # 1 = Referencing has been done
             # 0 = Referencing has not been done
-            if not self.query("FRF", address)[0].split("=")[1] == "1":
+            if not self.query("FRF", address)[0].split("=")[1].strip() == "1":
                 return True
         return False
 
@@ -354,7 +385,7 @@ class PI(Stage):
                     response=" ".join(response),
                 )
             try:
-                error_code_int = int(response[0])
+                error_code_int = int(response[0].strip())
             except ValueError:
                 raise ProtocolError(
                     query=f"{address} ERR?",
@@ -386,3 +417,262 @@ class PI(Stage):
                 raise ConnectionFailure(
                     f"No response received when setting origin for device at address {address}"
                 )
+
+    def _axis_values(self, command: str) -> list[float]:
+        """Query a per-axis motion setting: ``VEL?``, ``ACC?`` or ``DEC?``."""
+        values: list[float] = []
+        for address in self.addresses:
+            res = self.query(command, address)[0]
+            item, separator, value = res.partition("=")
+            if not separator or item.strip() != "1":
+                raise ProtocolError(
+                    query=f"{address} {command}?",
+                    response=res,
+                    expected="2 parts in the response, separated by =, with the first part being '1'",
+                )
+            values.append(float(value.strip()))
+        return values
+
+    def _set_axis_values(self, command: str, value: float | list[float]) -> None:
+        """Set a per-axis motion setting: ``VEL``, ``ACC`` or ``DEC``."""
+        if isinstance(value, (int, float)):
+            value = [float(value)] * len(self.addresses)
+        for address, axis_value in zip(self.addresses, value):
+            self.send(address, f"{command} 1 {axis_value}")
+
+    def _max_parameter(self, address: int, param_id: int) -> float:
+        """Higher of the volatile (``SPA?``) and non-volatile (``SEP?``) limit."""
+        return max(
+            self._query_parameter(address, param_id, nonvolatile=False),
+            self._query_parameter(address, param_id, nonvolatile=True),
+        )
+
+    @property
+    def velocity(self) -> list[float]:
+        """
+        Closed-loop velocity (``VEL``) of each axis, in units per second.
+
+        This is the maximum speed reached in closed-loop motion, and the
+        ceiling that joystick control scales via its lookup table factor
+        (-1.0 to 1.0). Lowering it is the usual fix for a joystick which
+        feels too fast.
+
+        Accepts a single value applied to every axis, or one value per
+        controller address.
+        """
+        return self._axis_values("VEL")
+
+    @velocity.setter
+    def velocity(self, value: float | list[float]) -> None:
+        self._set_axis_values("VEL", value)
+
+    @property
+    def acceleration(self) -> list[float]:
+        """
+        Closed-loop acceleration (``ACC``) of each axis, in units per second
+        squared.
+
+        The profile generator enforces this limit even while the axis is under
+        joystick control: it bounds how fast the commanded velocity can ramp up
+        towards the joystick-requested value. Lowering it smooths abrupt
+        joystick movements and reduces the peak motor current, which helps
+        avoid the amplifier's overcurrent protection tripping
+        (``PI_CNTR_OVER_CURR_PROTEC_TRIGGERED_BY_AMP_MODULE``).
+
+        Accepts a single value applied to every axis, or one value per
+        controller address.
+        """
+        return self._axis_values("ACC")
+
+    @acceleration.setter
+    def acceleration(self, value: float | list[float]) -> None:
+        self._set_axis_values("ACC", value)
+
+    @property
+    def deceleration(self) -> list[float]:
+        """
+        Closed-loop deceleration (``DEC``) of each axis, in units per second
+        squared. Same rationale as :attr:`acceleration`, on the ramp-down side
+        of a motion.
+        """
+        return self._axis_values("DEC")
+
+    @deceleration.setter
+    def deceleration(self, value: float | list[float]) -> None:
+        self._set_axis_values("DEC", value)
+
+    @property
+    def velocity_limits(self) -> list[PIVelocityLimits]:
+        """
+        Default and maximum closed-loop velocity for each controller address.
+
+        The default is read from non-volatile memory (parameter 0x49 via
+        ``SEP?``). The maximum is parameter 0xA, queried in both volatile
+        (``SPA?``) and non-volatile (``SEP?``) memory; the higher value is
+        used.
+        """
+        return [
+            PIVelocityLimits(
+                self._query_parameter(
+                    address, PI_CLOSED_LOOP_VELOCITY_PARAM, nonvolatile=True
+                ),
+                self._max_parameter(address, PI_MAX_CLOSED_LOOP_VELOCITY_PARAM),
+            )
+            for address in self.addresses
+        ]
+
+    @property
+    def velocity_default(self) -> list[float]:
+        """Default closed-loop velocity loaded at power-up (parameter 0x49)."""
+        return [
+            self._query_parameter(
+                address, PI_CLOSED_LOOP_VELOCITY_PARAM, nonvolatile=True
+            )
+            for address in self.addresses
+        ]
+
+    @property
+    def velocity_max(self) -> list[float]:
+        """Maximum settable closed-loop velocity (parameter 0xA)."""
+        return [
+            self._max_parameter(address, PI_MAX_CLOSED_LOOP_VELOCITY_PARAM)
+            for address in self.addresses
+        ]
+
+    @property
+    def acceleration_max(self) -> list[float]:
+        """Maximum settable closed-loop acceleration (parameter 0xB)."""
+        return [
+            self._max_parameter(address, PI_MAX_CLOSED_LOOP_ACCELERATION_PARAM)
+            for address in self.addresses
+        ]
+
+    @property
+    def deceleration_max(self) -> list[float]:
+        """Maximum settable closed-loop deceleration (parameter 0xC)."""
+        return [
+            self._max_parameter(address, PI_MAX_CLOSED_LOOP_DECELERATION_PARAM)
+            for address in self.addresses
+        ]
+
+    def enable_joystick(self) -> None:
+        """Enable analog joystick control on every configured controller."""
+        self.joystick_enabled = True
+
+    def disable_joystick(self) -> None:
+        """Disable analog joystick control on every configured controller."""
+        self.joystick_enabled = False
+
+    @property
+    def joystick_enabled(self) -> list[bool]:
+        """
+        Activation state of joystick device 1, for each controller address.
+
+        Enabling an axis switches it to closed-loop mode (``SVO 1 1``), which
+        the joystick requires, assigns controller axis 1 to joystick device 1 /
+        axis 1 (``JAX``), then enables the device (``JON``). Motion commands
+        are rejected while the joystick is enabled, and enabling it with no
+        device connected can cause unintentional axis motion.
+
+        Accepts a single flag applied to every axis, or one flag per controller
+        address, so that axes can be driven independently.
+        """
+        states: list[bool] = []
+        for address in self.addresses:
+            payload = self.query("JON", address, args=[str(_JOYSTICK_ID)])[0]
+            states.append(
+                self._parse_bool_assignment(
+                    payload,
+                    query=f"{address} JON? {_JOYSTICK_ID}",
+                    expected_left=str(_JOYSTICK_ID),
+                )
+            )
+        return states
+
+    @joystick_enabled.setter
+    def joystick_enabled(self, value: bool | list[bool]) -> None:
+        if isinstance(value, bool):
+            value = [value] * len(self.addresses)
+        for address, enabled in zip(self.addresses, value):
+            if enabled:
+                self.send(address, "SVO 1 1")
+                self.send(
+                    address,
+                    f"JAX {_JOYSTICK_ID} {_JOYSTICK_AXIS} {_JOYSTICK_CONTROLLER_AXIS}",
+                )
+            self.send(address, f"JON {_JOYSTICK_ID} {int(enabled)}")
+
+    @property
+    def joystick_buttons(self) -> list[bool]:
+        """
+        Pressed state of joystick button 1 for each controller address.
+
+        On the C-863.12 there is one button per joystick device, and one
+        joystick device per controller.
+        """
+        states: list[bool] = []
+        for address in self.addresses:
+            payload = self.query(
+                "JBS",
+                address,
+                args=[str(_JOYSTICK_ID), str(_JOYSTICK_BUTTON)],
+            )[0]
+            states.append(
+                self._parse_bool_assignment(
+                    payload,
+                    query=f"{address} JBS? {_JOYSTICK_ID} {_JOYSTICK_BUTTON}",
+                    expected_left=f"{_JOYSTICK_ID} {_JOYSTICK_BUTTON}",
+                )
+            )
+        return states
+
+    @property
+    def joystick_direction_inverted(self) -> list[bool]:
+        """
+        Inversion of joystick motion direction for each controller address.
+
+        Maps to parameter 0x61 (``SPA?`` / ``SPA``): ``0`` normal, ``1`` inverted.
+        """
+        return [
+            self._query_parameter(address, PI_JOYSTICK_INVERT_DIRECTION_PARAM) != 0.0
+            for address in self.addresses
+        ]
+
+    @joystick_direction_inverted.setter
+    def joystick_direction_inverted(self, value: bool | list[bool]) -> None:
+        if isinstance(value, bool):
+            value = [value] * len(self.addresses)
+        for address, inverted in zip(self.addresses, value):
+            self.send(
+                address,
+                f"SPA 1 0x{PI_JOYSTICK_INVERT_DIRECTION_PARAM:X} {int(inverted)}",
+            )
+
+    def _parse_bool_assignment(
+        self, payload: str, query: str, expected_left: str
+    ) -> bool:
+        parts = payload.split("=")
+        left = parts[0].strip() if parts else ""
+        right = parts[1].strip() if len(parts) == 2 else ""
+        if len(parts) != 2 or left != expected_left or right not in {"0", "1"}:
+            raise ProtocolError(
+                query=query,
+                response=payload,
+                expected=f"{expected_left}=<0|1>",
+            )
+        return right == "1"
+
+    def _query_parameter(
+        self, address: int, param_id: int, *, nonvolatile: bool = False
+    ) -> float:
+        command = "SEP" if nonvolatile else "SPA"
+        param = f"0x{param_id:X}"
+        payload = self.query(command, address, args=["1", param])[0]
+        try:
+            return float(payload.rsplit("=", 1)[1].strip())
+        except (IndexError, ValueError):
+            raise ProtocolError(
+                query=f"{address} {command}? 1 {param}",
+                response=payload,
+                expected="parameter assignment (<item> <id>=<value>)",
+            )
