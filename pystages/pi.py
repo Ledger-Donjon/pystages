@@ -28,6 +28,8 @@ from .pi_errors import PIError
 
 PI_CLOSED_LOOP_VELOCITY_PARAM = 0x49
 PI_MAX_CLOSED_LOOP_VELOCITY_PARAM = 0x0A
+PI_MAX_CLOSED_LOOP_ACCELERATION_PARAM = 0x0B
+PI_MAX_CLOSED_LOOP_DECELERATION_PARAM = 0x0C
 PI_MIN_CLOSED_LOOP_VELOCITY = 0.0
 PI_JOYSTICK_INVERT_DIRECTION_PARAM = 0x61
 
@@ -416,57 +418,88 @@ class PI(Stage):
                     f"No response received when setting origin for device at address {address}"
                 )
 
-    @property
-    def velocity(self) -> list[float]:
-        """
-        Get the closed-loop velocity (``VEL``) of the stage.
-
-        This is the maximum speed reached in closed-loop motion, and the
-        ceiling that joystick control scales via its lookup table factor
-        (-1.0 to 1.0).
-
-        :return: The velocity, in physical units per second, of each axis.
-        """
-        velocities: list[float] = []
+    def _axis_values(self, command: str) -> list[float]:
+        """Query a per-axis motion setting: ``VEL?``, ``ACC?`` or ``DEC?``."""
+        values: list[float] = []
         for address in self.addresses:
-            res = self.query("VEL", address)[0]
-            response = res.split("=")
-            if len(response) != 2 or int(response[0].strip()) != 1:
+            res = self.query(command, address)[0]
+            item, separator, value = res.partition("=")
+            if not separator or item.strip() != "1":
                 raise ProtocolError(
-                    query=f"{address} VEL?",
+                    query=f"{address} {command}?",
                     response=res,
                     expected="2 parts in the response, separated by =, with the first part being '1'",
                 )
-            velocities.append(float(response[1].strip()))
-        return velocities
+            values.append(float(value.strip()))
+        return values
+
+    def _set_axis_values(self, command: str, value: float | list[float]) -> None:
+        """Set a per-axis motion setting: ``VEL``, ``ACC`` or ``DEC``."""
+        if isinstance(value, (int, float)):
+            value = [float(value)] * len(self.addresses)
+        for address, axis_value in zip(self.addresses, value):
+            self.send(address, f"{command} 1 {axis_value}")
+
+    def _max_parameter(self, address: int, param_id: int) -> float:
+        """Higher of the volatile (``SPA?``) and non-volatile (``SEP?``) limit."""
+        return max(
+            self._query_parameter(address, param_id, nonvolatile=False),
+            self._query_parameter(address, param_id, nonvolatile=True),
+        )
+
+    @property
+    def velocity(self) -> list[float]:
+        """
+        Closed-loop velocity (``VEL``) of each axis, in units per second.
+
+        This is the maximum speed reached in closed-loop motion, and the
+        ceiling that joystick control scales via its lookup table factor
+        (-1.0 to 1.0). Lowering it is the usual fix for a joystick which
+        feels too fast.
+
+        Accepts a single value applied to every axis, or one value per
+        controller address.
+        """
+        return self._axis_values("VEL")
 
     @velocity.setter
     def velocity(self, value: float | list[float]) -> None:
+        self._set_axis_values("VEL", value)
+
+    @property
+    def acceleration(self) -> list[float]:
         """
-        Set the closed-loop velocity (``VEL``) of the stage.
+        Closed-loop acceleration (``ACC``) of each axis, in units per second
+        squared.
 
-        Lowering this value directly reduces the maximum speed reachable
-        via joystick control, which is the usual cause of the joystick
-        feeling "too fast".
+        The profile generator enforces this limit even while the axis is under
+        joystick control: it bounds how fast the commanded velocity can ramp up
+        towards the joystick-requested value. Lowering it smooths abrupt
+        joystick movements and reduces the peak motor current, which helps
+        avoid the amplifier's overcurrent protection tripping
+        (``PI_CNTR_OVER_CURR_PROTEC_TRIGGERED_BY_AMP_MODULE``).
 
-        :param value: Velocity, in physical units per second, applied to
-            every axis, or a list with one value per controller address.
+        Accepts a single value applied to every axis, or one value per
+        controller address.
         """
-        if isinstance(value, (int, float)):
-            value = [float(value)] * len(self.addresses)
+        return self._axis_values("ACC")
 
-        for address, velocity in zip(self.addresses, value):
-            self.send(address, f"VEL 1 {velocity}")
+    @acceleration.setter
+    def acceleration(self, value: float | list[float]) -> None:
+        self._set_axis_values("ACC", value)
 
-    def _velocity_max_for_address(self, address: int) -> float:
-        return max(
-            self._query_parameter(
-                address, PI_MAX_CLOSED_LOOP_VELOCITY_PARAM, nonvolatile=False
-            ),
-            self._query_parameter(
-                address, PI_MAX_CLOSED_LOOP_VELOCITY_PARAM, nonvolatile=True
-            ),
-        )
+    @property
+    def deceleration(self) -> list[float]:
+        """
+        Closed-loop deceleration (``DEC``) of each axis, in units per second
+        squared. Same rationale as :attr:`acceleration`, on the ramp-down side
+        of a motion.
+        """
+        return self._axis_values("DEC")
+
+    @deceleration.setter
+    def deceleration(self, value: float | list[float]) -> None:
+        self._set_axis_values("DEC", value)
 
     @property
     def velocity_limits(self) -> list[PIVelocityLimits]:
@@ -478,19 +511,15 @@ class PI(Stage):
         (``SPA?``) and non-volatile (``SEP?``) memory; the higher value is
         used.
         """
-        limits: list[PIVelocityLimits] = []
-        for address in self.addresses:
-            limits.append(
-                PIVelocityLimits(
-                    self._query_parameter(
-                        address,
-                        PI_CLOSED_LOOP_VELOCITY_PARAM,
-                        nonvolatile=True,
-                    ),
-                    self._velocity_max_for_address(address),
-                )
+        return [
+            PIVelocityLimits(
+                self._query_parameter(
+                    address, PI_CLOSED_LOOP_VELOCITY_PARAM, nonvolatile=True
+                ),
+                self._max_parameter(address, PI_MAX_CLOSED_LOOP_VELOCITY_PARAM),
             )
-        return limits
+            for address in self.addresses
+        ]
 
     @property
     def velocity_default(self) -> list[float]:
@@ -505,116 +534,49 @@ class PI(Stage):
     @property
     def velocity_max(self) -> list[float]:
         """Maximum settable closed-loop velocity (parameter 0xA)."""
-        return [self._velocity_max_for_address(address) for address in self.addresses]
+        return [
+            self._max_parameter(address, PI_MAX_CLOSED_LOOP_VELOCITY_PARAM)
+            for address in self.addresses
+        ]
 
     @property
-    def acceleration(self) -> list[float]:
-        """
-        Get the closed-loop acceleration (``ACC``) of the stage.
-
-        :return: The acceleration, in physical units per second squared,
-            of each axis.
-        """
-        accelerations: list[float] = []
-        for address in self.addresses:
-            res = self.query("ACC", address)[0]
-            response = res.split("=")
-            if len(response) != 2 or int(response[0].strip()) != 1:
-                raise ProtocolError(
-                    query=f"{address} ACC?",
-                    response=res,
-                    expected="2 parts in the response, separated by =, with the first part being '1'",
-                )
-            accelerations.append(float(response[1].strip()))
-        return accelerations
-
-    @acceleration.setter
-    def acceleration(self, value: float | list[float]) -> None:
-        """
-        Set the closed-loop acceleration (``ACC``) of the stage.
-
-        The profile generator enforces this limit even while the axis is
-        under joystick control: it bounds how fast the commanded velocity
-        can ramp up towards the joystick-requested value. Lowering it
-        smooths abrupt joystick movements and reduces the peak motor
-        current, which helps avoid the amplifier's overcurrent protection
-        tripping (``PI_CNTR_OVER_CURR_PROTEC_TRIGGERED_BY_AMP_MODULE``).
-
-        :param value: Acceleration, in physical units per second squared,
-            applied to every axis, or a list with one value per controller
-            address.
-        """
-        if isinstance(value, (int, float)):
-            value = [float(value)] * len(self.addresses)
-
-        for address, acceleration in zip(self.addresses, value):
-            self.send(address, f"ACC 1 {acceleration}")
+    def acceleration_max(self) -> list[float]:
+        """Maximum settable closed-loop acceleration (parameter 0xB)."""
+        return [
+            self._max_parameter(address, PI_MAX_CLOSED_LOOP_ACCELERATION_PARAM)
+            for address in self.addresses
+        ]
 
     @property
-    def deceleration(self) -> list[float]:
-        """
-        Get the closed-loop deceleration (``DEC``) of the stage.
-
-        :return: The deceleration, in physical units per second squared,
-            of each axis.
-        """
-        decelerations: list[float] = []
-        for address in self.addresses:
-            res = self.query("DEC", address)[0]
-            response = res.split("=")
-            if len(response) != 2 or int(response[0].strip()) != 1:
-                raise ProtocolError(
-                    query=f"{address} DEC?",
-                    response=res,
-                    expected="2 parts in the response, separated by =, with the first part being '1'",
-                )
-            decelerations.append(float(response[1].strip()))
-        return decelerations
-
-    @deceleration.setter
-    def deceleration(self, value: float | list[float]) -> None:
-        """
-        Set the closed-loop deceleration (``DEC``) of the stage.
-
-        Same rationale as :attr:`acceleration`, applied to the ramp-down
-        side of a motion.
-
-        :param value: Deceleration, in physical units per second squared,
-            applied to every axis, or a list with one value per controller
-            address.
-        """
-        if isinstance(value, (int, float)):
-            value = [float(value)] * len(self.addresses)
-
-        for address, deceleration in zip(self.addresses, value):
-            self.send(address, f"DEC 1 {deceleration}")
+    def deceleration_max(self) -> list[float]:
+        """Maximum settable closed-loop deceleration (parameter 0xC)."""
+        return [
+            self._max_parameter(address, PI_MAX_CLOSED_LOOP_DECELERATION_PARAM)
+            for address in self.addresses
+        ]
 
     def enable_joystick(self) -> None:
-        """
-        Enable analog joystick control on every configured controller.
-
-        Assigns controller axis 1 to joystick device 1 / axis 1 (``JAX``), then
-        enables the device (``JON 1 1``). Servo mode must already be on.
-        Motion commands are rejected while the joystick is enabled.
-
-        Enabling the joystick with no device connected can cause unintentional
-        axis motion.
-        """
-        for address in self.addresses:
-            self.send(
-                address,
-                f"JAX {_JOYSTICK_ID} {_JOYSTICK_AXIS} {_JOYSTICK_CONTROLLER_AXIS}",
-            )
-            self.send(address, f"JON {_JOYSTICK_ID} 1")
+        """Enable analog joystick control on every configured controller."""
+        self.joystick_enabled = True
 
     def disable_joystick(self) -> None:
         """Disable analog joystick control on every configured controller."""
-        for address in self.addresses:
-            self.send(address, f"JON {_JOYSTICK_ID} 0")
+        self.joystick_enabled = False
 
     @property
     def joystick_enabled(self) -> list[bool]:
-        """Activation state of joystick device 1 for each controller address."""
+        """
+        Activation state of joystick device 1, for each controller address.
+
+        Enabling an axis switches it to closed-loop mode (``SVO 1 1``), which
+        the joystick requires, assigns controller axis 1 to joystick device 1 /
+        axis 1 (``JAX``), then enables the device (``JON``). Motion commands
+        are rejected while the joystick is enabled, and enabling it with no
+        device connected can cause unintentional axis motion.
+
+        Accepts a single flag applied to every axis, or one flag per controller
+        address, so that axes can be driven independently.
+        """
         states: list[bool] = []
         for address in self.addresses:
             payload = self.query("JON", address, args=[str(_JOYSTICK_ID)])[0]
@@ -626,6 +588,19 @@ class PI(Stage):
                 )
             )
         return states
+
+    @joystick_enabled.setter
+    def joystick_enabled(self, value: bool | list[bool]) -> None:
+        if isinstance(value, bool):
+            value = [value] * len(self.addresses)
+        for address, enabled in zip(self.addresses, value):
+            if enabled:
+                self.send(address, "SVO 1 1")
+                self.send(
+                    address,
+                    f"JAX {_JOYSTICK_ID} {_JOYSTICK_AXIS} {_JOYSTICK_CONTROLLER_AXIS}",
+                )
+            self.send(address, f"JON {_JOYSTICK_ID} {int(enabled)}")
 
     @property
     def joystick_buttons(self) -> list[bool]:
@@ -693,24 +668,11 @@ class PI(Stage):
         command = "SEP" if nonvolatile else "SPA"
         param = f"0x{param_id:X}"
         payload = self.query(command, address, args=["1", param])[0]
-        return self._parse_parameter_value(
-            payload,
-            query=f"{address} {command}? 1 {param}",
-        )
-
-    @staticmethod
-    def _parse_parameter_value(payload: str, query: str) -> float:
-        if "=" not in payload:
-            raise ProtocolError(
-                query=query,
-                response=payload,
-                expected="parameter assignment (<item> <id>=<value>)",
-            )
         try:
             return float(payload.rsplit("=", 1)[1].strip())
-        except ValueError:
+        except (IndexError, ValueError):
             raise ProtocolError(
-                query=query,
+                query=f"{address} {command}? 1 {param}",
                 response=payload,
-                expected="float value after '='",
+                expected="parameter assignment (<item> <id>=<value>)",
             )

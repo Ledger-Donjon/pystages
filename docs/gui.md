@@ -54,3 +54,7 @@ lookup table from the controller, edit the velocity factors in `[-1.0, 1.0]`,
 or load the firmware linear / parabolic profiles. Writing stores the table in
 non-volatile memory, which supports a limited number of write cycles.
 
+Each address also gets sliders for its velocity, acceleration and deceleration,
+and a button enabling the joystick on that axis only. Values changed with the
+sliders are sent back to the controller when leaving the program.
+

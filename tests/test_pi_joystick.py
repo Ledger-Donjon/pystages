@@ -45,15 +45,18 @@ def pi(monkeypatch: pytest.MonkeyPatch, fake_serial: FakeSerial) -> PI:
     return stage
 
 
-def test_enable_joystick_assigns_axis_then_enables(
+def test_enable_joystick_switches_to_closed_loop_then_assigns_axis(
     pi: PI, fake_serial: FakeSerial
 ) -> None:
     pi.enable_joystick()
     assert fake_serial.written == [
+        "1 SVO 1 1\n",
         "1 JAX 1 1 1\n",
         "1 JON 1 1\n",
+        "2 SVO 1 1\n",
         "2 JAX 1 1 1\n",
         "2 JON 1 1\n",
+        "3 SVO 1 1\n",
         "3 JAX 1 1 1\n",
         "3 JON 1 1\n",
     ]
@@ -62,6 +65,17 @@ def test_enable_joystick_assigns_axis_then_enables(
 def test_disable_joystick(pi: PI, fake_serial: FakeSerial) -> None:
     pi.disable_joystick()
     assert fake_serial.written == ["1 JON 1 0\n", "2 JON 1 0\n", "3 JON 1 0\n"]
+
+
+def test_set_joystick_enabled_per_address(pi: PI, fake_serial: FakeSerial) -> None:
+    pi.joystick_enabled = [False, True, False]
+    assert fake_serial.written == [
+        "1 JON 1 0\n",
+        "2 SVO 1 1\n",
+        "2 JAX 1 1 1\n",
+        "2 JON 1 1\n",
+        "3 JON 1 0\n",
+    ]
 
 
 def test_joystick_enabled(pi: PI, fake_serial: FakeSerial) -> None:
@@ -238,3 +252,38 @@ def test_set_deceleration_scalar_applies_to_every_axis(
 ) -> None:
     pi.deceleration = 5.0
     assert fake_serial.written == ["1 DEC 1 5.0\n", "2 DEC 1 5.0\n", "3 DEC 1 5.0\n"]
+
+
+def test_acceleration_and_deceleration_max(pi: PI, fake_serial: FakeSerial) -> None:
+    fake_serial.push(1, "1 0xB=50.000000")
+    fake_serial.push(1, "1 0xB=40.000000")
+    fake_serial.push(2, "1 0xB=60.000000")
+    fake_serial.push(2, "1 0xB=60.000000")
+    fake_serial.push(3, "1 0xB=70.000000")
+    fake_serial.push(3, "1 0xB=80.000000")
+    assert pi.acceleration_max == [50.0, 60.0, 80.0]
+    assert fake_serial.written == [
+        "1 SPA? 1 0xB\n",
+        "1 SEP? 1 0xB\n",
+        "2 SPA? 1 0xB\n",
+        "2 SEP? 1 0xB\n",
+        "3 SPA? 1 0xB\n",
+        "3 SEP? 1 0xB\n",
+    ]
+
+    fake_serial.written.clear()
+    fake_serial.push(1, "1 0xC=50.000000")
+    fake_serial.push(1, "1 0xC=40.000000")
+    fake_serial.push(2, "1 0xC=60.000000")
+    fake_serial.push(2, "1 0xC=60.000000")
+    fake_serial.push(3, "1 0xC=70.000000")
+    fake_serial.push(3, "1 0xC=80.000000")
+    assert pi.deceleration_max == [50.0, 60.0, 80.0]
+    assert fake_serial.written == [
+        "1 SPA? 1 0xC\n",
+        "1 SEP? 1 0xC\n",
+        "2 SPA? 1 0xC\n",
+        "2 SEP? 1 0xC\n",
+        "3 SPA? 1 0xC\n",
+        "3 SEP? 1 0xC\n",
+    ]

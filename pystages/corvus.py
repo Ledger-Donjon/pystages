@@ -165,6 +165,22 @@ class Corvus(Stage):
         """Enable joystick (manual mode)"""
         self.send("1 j")
 
+    def disable_joystick(self) -> None:
+        """Disable joystick (manual mode)"""
+        self.send("0 j")
+
+    @property
+    def joystick_enabled(self) -> bool:
+        """Return True if joystick is enabled, False otherwise"""
+        return bool(int(self.send_receive("j")) & 1)
+
+    @joystick_enabled.setter
+    def joystick_enabled(self, value: bool) -> None:
+        if value:
+            self.enable_joystick()
+        else:
+            self.disable_joystick()
+
     @property
     def is_connected(self) -> bool:
         """:return: True if the instance is connected to the stage."""
